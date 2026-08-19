@@ -1,0 +1,44 @@
+# Git ignore للمشروع - يمنع رفع الأسرار والبيانات الحساسة على GitHub
+
+# ===== بيانات اعتماد Firebase والأسرار =====
+.streamlit/secrets.toml
+*firebase-adminsdk*.json
+*.json.key
+service_account*.json
+
+# ===== قاعدة بيانات SQLite المحلية =====
+*.db
+*.sqlite
+*.sqlite3
+
+# ===== البيئة الافتراضية Python =====
+.venv/
+venv/
+ENV/
+env/
+
+# ===== ملفات Python المؤقتة =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ===== IDE وأدوات المحررين =====
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ===== ملفات النظام =====
+*.log
+*.tmp
+*.temp
