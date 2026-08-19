@@ -234,19 +234,27 @@ def apply_custom_styles():
         padding: 10px 20px !important;
     }
 
-    /* شارات التخصصات */
-    .badge-spec {
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 700;
+    /* صندوق الإعدادات */
+    .settings-box {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
     }
-    .badge-hvac { background-color: #E0F2FE; color: #0369A1; }
-    .badge-elec { background-color: #FEF3C7; color: #B45309; }
-    .badge-plumb { background-color: #DCFCE7; color: #15803D; }
-    .badge-civil { background-color: #F3E8FF; color: #7E22CE; }
-    .badge-other { background-color: #F1F5F9; color: #475569; }
+
+    .settings-box-header {
+        font-size: 17px;
+        font-weight: 800;
+        color: #0F172A;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid #F1F5F9;
+        padding-bottom: 8px;
+    }
 
     /* شعار الهيدر العسكري */
     .military-header {
@@ -275,13 +283,13 @@ def apply_custom_styles():
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-def render_sidebar_header():
-    """عرض ترويسة الشريط الجانبي بتصميم عسكري موحد"""
-    st.sidebar.markdown("""
+def render_sidebar_header(title="شعبة الصيانة والتشغيل", subtitle="إدارة مفارز المستشفيات العسكرية"):
+    """عرض ترويسة الشريط الجانبي بتصميم عسكري موحد قابلة للتخصيص"""
+    st.sidebar.markdown(f"""
     <div style="text-align: center; padding: 15px 0 20px 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;">
         <div style="font-size: 36px; margin-bottom: 5px;">🛡️ ⚙️</div>
-        <div style="font-size: 18px; font-weight: 800; color: #F8FAFC; letter-spacing: 0.5px;">شعبة الصيانة والتشغيل</div>
-        <div style="font-size: 13px; color: #94A3B8; font-weight: 600;">إدارة مفارز المستشفيات العسكرية</div>
+        <div style="font-size: 18px; font-weight: 800; color: #F8FAFC; letter-spacing: 0.5px;">{title}</div>
+        <div style="font-size: 13px; color: #94A3B8; font-weight: 600;">{subtitle}</div>
     </div>
     """, unsafe_allow_html=True)
 

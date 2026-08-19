@@ -6,6 +6,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import json
 from datetime import datetime, date
 import plotly.express as px
 import plotly.graph_objects as go
@@ -24,8 +25,11 @@ st.set_page_config(
 # تطبيق التنسيقات العربية المخصصة (RTL)
 styles.apply_custom_styles()
 
-# تهيئة قاعدة البيانات والتأكد من وجود البيانات الأولية
+# تهيئة قاعدة البيانات والتأكد من وجود الجداول والحقول والإعدادات
 db.init_db()
+
+# جلب إعدادات المنظومة المخصصة
+settings = db.get_app_settings()
 
 # قائمة الرتب العسكرية القياسية
 MILITARY_RANKS = [
@@ -40,6 +44,18 @@ MILITARY_RANKS = [
     "ملازم أول",
     "نقيب",
     "رئيس رقباء"
+]
+
+# قائمة الأصناف العسكرية الأساسية
+PRIMARY_CATEGORIES = [
+    "سلاح الصيانة الملكي",
+    "الخدمات الطبية الملكية",
+    "سلاح الهندسة الملكي",
+    "سلاح الجو الملكي",
+    "قيادة سلاح اللاسلكي الملكي",
+    "التموين والنقل الملكي",
+    "المشاة والعمليات الخاصة",
+    "صنف آخر"
 ]
 
 # قائمة التخصصات الفنية المطلوبة
@@ -76,7 +92,10 @@ def export_to_excel(df: pd.DataFrame, sheet_name="البيانات") -> bytes:
     return output.getvalue()
 
 # --- الشريط الجانبي (Sidebar) ---
-styles.render_sidebar_header()
+styles.render_sidebar_header(
+    title=settings.get("sidebar_title", "شعبة الصيانة والتشغيل"),
+    subtitle="إدارة مفارز المستشفيات العسكرية"
+)
 
 menu_choice = st.sidebar.radio(
     "القائمة الرئيسية:",
@@ -84,7 +103,8 @@ menu_choice = st.sidebar.radio(
         "📊 لوحة المؤشرات العامة",
         "🏥 كشف المفارز والمستشفيات",
         "👥 إدارة المرتبات والفنيين",
-        "🔄 سجل حركات النقل"
+        "🔄 سجل حركات النقل",
+        "⚙️ الإعدادات وتخصيص المنظومة"
     ],
     index=0
 )
@@ -109,8 +129,8 @@ st.sidebar.markdown(f"""
 # ==============================================================================
 if menu_choice == "📊 لوحة المؤشرات العامة":
     styles.render_page_header(
-        "لوحة المؤشرات والمتابعة الميدانية",
-        "نظرة شاملة ولحظية على القوى البشرية، جاهزية المفارز، وتنبيهات النواقص بالمستشفيات العسكرية",
+        settings.get("app_title", "نظام إدارة مفارز الصيانة العسكرية"),
+        settings.get("app_subtitle", "نظرة شاملة ولحظية على القوى البشرية، جاهزية المفارز، وتنبيهات النواقص بالمستشفيات العسكرية"),
         "📊"
     )
 
@@ -180,7 +200,6 @@ if menu_choice == "📊 لوحة المؤشرات العامة":
         if stats["hospital_distribution"]:
             hosp_df = pd.DataFrame(stats["hospital_distribution"])
             hosp_df.columns = ["المستشفى", "المحافظة", "عدد الفنيين"]
-            # اختصار أسماء المستشفيات لجمال الرسم
             hosp_df["المستشفى_المختصر"] = hosp_df["المستشفى"].str.replace("بن الحسن العسكري", "").str.replace("بنت الحسين العسكري", "").str.replace("بن الحسين", "")
 
             fig_hosp = px.bar(
@@ -258,18 +277,19 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                     height=100
                 )
 
-                btn_col1, btn_col2 = st.columns([1, 4])
+                btn_col1, btn_col2 = st.columns([1, 3])
                 with btn_col1:
-                    if st.button("💾 حفظ وتحديث النواقص", key=f"save_btn_{selected_id}", type="primary", use_container_width=True):
+                    save_shortage_btn_text = settings.get("btn_save_shortages_label", "💾 حفظ وتحديث النواقص")
+                    if st.button(save_shortage_btn_text, key=f"save_btn_{selected_id}", type="primary", use_container_width=True):
                         db.update_detachment_shortages(selected_id, shortages_input)
-                        st.toast("✅ تم تحديث وحفظ النواقص والاحتياجات البشرية بنجاح!", icon="🛡️")
+                        st.toast("✅ تم حفظ وتحديث النواقص بنجاح!", icon="🛡️")
                         st.rerun()
 
             st.markdown("---")
 
             # 2.3 جدول تفصيلي بكافة الفنيين التابعين للمفرزة
             st.markdown(f"#### 👥 كشف مرتبات الفنيين التابعين للمفرزة ({selected_detachment['hospital_name']})")
-            tech_df = db.get_technicians_by_detachment_df(selected_id)
+            tech_df = db.get_technicians_by_detachment_df(selected_id, apply_custom_columns=True)
 
             if not tech_df.empty:
                 st.dataframe(tech_df, use_container_width=True, hide_index=True)
@@ -278,8 +298,9 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                 excel_data = export_to_excel(tech_df, sheet_name=f"كشف {selected_detachment['governorate']}")
                 file_name = f"كشف_مرتبات_{selected_detachment['hospital_name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
 
+                export_btn_label = settings.get("btn_export_label", "📥 تصدير الكشف إلى Excel")
                 st.download_button(
-                    label="📥 تصدير كشف المفرزة إلى Excel (.xlsx)",
+                    label=export_btn_label,
                     data=excel_data,
                     file_name=file_name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -288,49 +309,6 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
             else:
                 st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك إضافة أو نقل فنيين إليها من شاشة إدارة المرتبات.")
 
-            # 2.4 تعديل البيانات العامة للمستشفى / المفرزة (خيار إضافي موسع)
-            with st.expander("⚙️ تعديل البيانات الأساسية للمستشفى / المفرزة"):
-                with st.form(key=f"edit_detachment_form_{selected_id}"):
-                    e_col1, e_col2 = st.columns(2)
-                    with e_col1:
-                        new_hosp_name = st.text_input("اسم المستشفى العسكري:", value=selected_detachment['hospital_name'])
-                        new_gov = st.selectbox("المحافظة:", options=GOVERNORATES, index=GOVERNORATES.index(selected_detachment['governorate']) if selected_detachment['governorate'] in GOVERNORATES else 0)
-                        new_phone = st.text_input("رقم هاتف المفرزة / التواصل:", value=selected_detachment['contact_phone'] or '')
-                    with e_col2:
-                        new_rank = st.selectbox("رتبة مسؤول المفرزة:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(selected_detachment['supervisor_rank']) if selected_detachment['supervisor_rank'] in MILITARY_RANKS else 0)
-                        new_name = st.text_input("اسم مسؤول المفرزة:", value=selected_detachment['supervisor_name'])
-                        new_notes = st.text_input("ملاحظات عامة:", value=selected_detachment['notes'] or '')
-
-                    save_edit_btn = st.form_submit_button("حفظ تعديل بيانات المفرزة")
-                    if save_edit_btn:
-                        db.update_detachment_info(selected_id, new_hosp_name, new_gov, new_rank, new_name, new_phone, new_notes)
-                        st.toast("✅ تم تحديث بيانات المفرزة بنجاح!", icon="🏥")
-                        st.rerun()
-
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    # إضافة مفرزة / مستشفى جديد
-    with st.expander("➕ إضافة مفرزة أو مستشفى عسكري جديد إلى المنظومة"):
-        with st.form(key="add_new_detachment_form", clear_on_submit=True):
-            a_col1, a_col2 = st.columns(2)
-            with a_col1:
-                add_hosp_name = st.text_input("اسم المستشفى العسكري *:")
-                add_gov = st.selectbox("المحافظة *:", options=GOVERNORATES)
-                add_phone = st.text_input("هاتف التواصل:")
-            with a_col2:
-                add_rank = st.selectbox("رتبة مسؤول المفرزة *:", options=MILITARY_RANKS)
-                add_name = st.text_input("اسم مسؤول المفرزة *:")
-                add_shortages = st.text_area("النواقص والاحتياجات الأولية:")
-                add_notes = st.text_input("ملاحظات:")
-
-            submit_add_det = st.form_submit_button("إضافة المفرزة لقاعدة البيانات", type="primary")
-            if submit_add_det:
-                if not add_hosp_name or not add_name:
-                    st.error("يرجى ملء جميع الحقول الإجبارية (*)")
-                else:
-                    db.add_detachment(add_hosp_name, add_gov, add_rank, add_name, add_phone, add_shortages, add_notes)
-                    st.toast("✅ تم إضافة المفرزة بنجاح!", icon="🏥")
-                    st.rerun()
-
 
 # ==============================================================================
 # 3. إدارة المرتبات والفنيين (Technicians Management)
@@ -338,12 +316,11 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
 elif menu_choice == "👥 إدارة المرتبات والفنيين":
     styles.render_page_header(
         "إدارة المرتبات والقوى البشرية",
-        "كشف الفنيين الشامل، محرك البحث والفلاتر، إضافة وتعديل الفنيين، وإجراء حركات النقل الفورية",
+        "كشف الفنيين الشامل، البحث والفلاتر، إضافة وتعديل الفنيين، وإجراء حركات النقل الميدانية",
         "👥"
     )
 
     detachments = db.get_detachments_list()
-    detachment_map = {d['id']: d['hospital_name'] for d in detachments}
 
     tab1, tab2, tab3, tab4 = st.tabs([
         "📋 كشف الفنيين العام والبحث",
@@ -357,31 +334,39 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
     # --------------------------------------------------------------------------
     with tab1:
         st.markdown("#### 🔍 البحث والفلترة السريعة في مرتبات الفنيين")
-        f_col1, f_col2, f_col3 = st.columns([2, 1, 1])
+        f_col1, f_col2, f_col3, f_col4 = st.columns([2, 1, 1, 1])
         with f_col1:
-            search_query = st.text_input("بحث بالاسم الرباعي أو الرقم العسكري:", placeholder="اكتب اسم الفني أو رقمه العسكري...")
+            search_query = st.text_input("بحث بالاسم أو الرقم العسكري أو مكان السكن:", placeholder="اكتب للبحث...")
         with f_col2:
             specialty_filter = st.selectbox("تصفية حسب التخصص:", options=["الكل"] + SPECIALTIES)
         with f_col3:
             hosp_options = ["الكل"] + [d['hospital_name'] for d in detachments]
             hospital_filter = st.selectbox("تصفية حسب المستشفى:", options=hosp_options)
+        with f_col4:
+            cat_options = ["الكل"] + PRIMARY_CATEGORIES
+            category_filter = st.selectbox("تصفية حسب الصنف:", options=cat_options)
 
         # جلب البيانات وتطبيق الفلاتر
-        all_tech_df = db.get_all_technicians_df()
+        all_tech_df = db.get_all_technicians_df(apply_custom_columns=True)
 
         filtered_df = all_tech_df.copy()
 
         if search_query:
             filtered_df = filtered_df[
-                filtered_df["الاسم الرباعي"].str.contains(search_query, case=False, na=False) |
-                filtered_df["الرقم العسكري"].astype(str).str.contains(search_query, case=False, na=False)
+                filtered_df["الاسم الرباعي"].astype(str).str.contains(search_query, case=False, na=False) |
+                filtered_df["الرقم العسكري"].astype(str).str.contains(search_query, case=False, na=False) |
+                filtered_df["مكان السكن"].astype(str).str.contains(search_query, case=False, na=False) |
+                filtered_df["المهنة الحالية"].astype(str).str.contains(search_query, case=False, na=False)
             ]
 
-        if specialty_filter != "الكل":
+        if specialty_filter != "الكل" and "التخصص الفني" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["التخصص الفني"] == specialty_filter]
 
-        if hospital_filter != "الكل":
+        if hospital_filter != "الكل" and "المستشفى الحالي" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["المستشفى الحالي"] == hospital_filter]
+
+        if category_filter != "الكل" and "الصنف الأساسي" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["الصنف الأساسي"] == category_filter]
 
         # إحصائية نتائج البحث
         st.caption(f"📊 عدد الفنيين المطابقين للبحث: **{len(filtered_df)}** من إجمالي **{len(all_tech_df)}**")
@@ -393,8 +378,9 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
         # زر تصدير النتائج إلى Excel
         if not display_df.empty:
             excel_all = export_to_excel(display_df, sheet_name="كشف الفنيين")
+            export_btn_label = settings.get("btn_export_label", "📥 تصدير الكشف إلى Excel")
             st.download_button(
-                label="📥 تصدير نتائج البحث الحالية إلى Excel (.xlsx)",
+                label=f"{export_btn_label} (النتائج الحالية)",
                 data=excel_all,
                 file_name=f"كشف_الفنيين_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -412,16 +398,20 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                 tech_mil_id = st.text_input("الرقم العسكري (مفتاح فريد) *:", placeholder="مثال: 987654")
                 tech_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=2)
                 tech_name = st.text_input("الاسم الرباعي *:", placeholder="مثال: أحمد محمد علي حسن")
+                tech_category = st.selectbox("الصنف الأساسي *:", options=PRIMARY_CATEGORIES, index=0)
                 tech_specialty = st.selectbox("التخصص الفني *:", options=SPECIALTIES)
+                tech_job = st.text_input("المهنة الحالية / الوظيفة الفعلية بالمفرزة:", placeholder="مثال: فني تكييف شيلرات وغرف عمليات")
 
             with col_b:
                 det_select_options = {d['hospital_name']: d['id'] for d in detachments}
                 tech_detachment_name = st.selectbox("المفرزة / المستشفى التابع لها *:", options=list(det_select_options.keys()))
+                tech_residence = st.text_input("مكان السكن الفعلي *:", placeholder="مثال: إربد - لواء بني عبيد (الحصن)")
                 tech_join_date = st.date_input("تاريخ الالتحاق بالمفرزة *:", value=date.today())
                 tech_phone = st.text_input("رقم الهاتف:", placeholder="مثال: 0791234567")
-                tech_eval = st.text_area("الملاحظات والتقييم الفني والأداء:", placeholder="تقييم الأداء والخبرة والجاهزية الفنية...")
+                tech_eval = st.text_area("الملاحظات والتقييم الفني والأداء:", placeholder="تقييم الأداء والجاهزية الفنية...")
 
-            submit_add_tech = st.form_submit_button("💾 حفظ وتسجيل الفني", type="primary", use_container_width=True)
+            add_btn_label = settings.get("btn_add_tech_label", "💾 حفظ وتسجيل الفني")
+            submit_add_tech = st.form_submit_button(add_btn_label, type="primary", use_container_width=True)
 
             if submit_add_tech:
                 if not tech_mil_id.strip() or not tech_name.strip():
@@ -433,6 +423,9 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                         tech_rank,
                         tech_name.strip(),
                         tech_specialty,
+                        tech_category,
+                        tech_job.strip(),
+                        tech_residence.strip(),
                         det_id,
                         str(tech_join_date),
                         tech_phone.strip(),
@@ -450,16 +443,15 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
     # --------------------------------------------------------------------------
     with tab3:
         st.markdown("#### 🔄 إجراء وتوثيق حركة نقل فني بين المفارز")
-        st.info("💡 عند تنفيذ حركة النقل، يقوم النظام تلقائياً بتحديث مفرزة الفني وتاريخ التحاقه، وتوثيق القيد في سجل حركات النقل.")
+        st.info("💡 عند تنفيذ حركة النقل، يقوم النظام تلقائياً بتحديث مفرزة الفني وتاريخ التحاقه وتوثيق القيد في سجل حركات النقل.")
 
-        all_techs = db.get_all_technicians_df()
+        all_techs = db.get_all_technicians_df(apply_custom_columns=False)
 
         if all_techs.empty:
             st.warning("لا يوجد فنيين مسجلين لإجراء حركة نقل.")
         else:
-            # قائمة اختيار الفني
             tech_choices = {
-                f"{row['الرتبة']} / {row['الاسم الرباعي']} (الرقم العسكري: {row['الرقم العسكري']}) - [حالياً: {row['المستشفى الحالي']}]": row['الرقم العسكري']
+                f"{row['الرتبة']} / {row['الاسم الرباعي']} (الرقم العسكري: {row['الرقم العسكري']}) - [سكن: {row.get('مكان السكن', 'غير محدد')}] - [حالياً: {row['المستشفى الحالي']}]": row['الرقم العسكري']
                 for _, row in all_techs.iterrows()
             }
 
@@ -468,17 +460,18 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
             tech_info = db.get_technician_by_id(selected_mil_id)
 
             if tech_info:
+                duration_arabic = db.calculate_duration_arabic(tech_info.get("join_date", ""))
                 st.markdown(f"""
                 <div style="background: #F1F5F9; border-radius: 8px; padding: 14px; margin: 10px 0; border: 1px solid #CBD5E1;">
-                    <div><b>الرقم العسكري:</b> {tech_info['military_id']} | <b>الاسم:</b> {tech_info['rank']} / {tech_info['full_name']}</div>
-                    <div><b>التخصص:</b> {tech_info['specialty']} | <b>المفرزة الحالية:</b> {tech_info['hospital_name'] or 'غير محدد'} ({tech_info['governorate'] or ''})</div>
+                    <div><b>الرقم العسكري:</b> {tech_info['military_id']} | <b>الاسم:</b> {tech_info['rank']} / {tech_info['full_name']} | <b>الصنف:</b> {tech_info.get('primary_category', 'سلاح الصيانة الملكي')}</div>
+                    <div><b>التخصص:</b> {tech_info['specialty']} | <b>المهنة الحالية:</b> {tech_info.get('current_job', 'غير محدد')} | <b>مكان السكن:</b> {tech_info.get('residence', 'غير محدد')}</div>
+                    <div><b>المفرزة الحالية:</b> {tech_info['hospital_name'] or 'غير محدد'} ({tech_info['governorate'] or ''}) | <b>تاريخ الالتحاق:</b> {tech_info['join_date']} (خدمة بالمفرزة: <b style="color: #15803D;">{duration_arabic}</b>)</div>
                 </div>
                 """, unsafe_allow_html=True)
 
                 with st.form(key="transfer_form"):
                     t_col1, t_col2 = st.columns(2)
                     with t_col1:
-                        # استبعاد المفرزة الحالية من قائمة الوجهات
                         dest_options = {d['hospital_name']: d['id'] for d in detachments if d['id'] != tech_info['current_detachment_id']}
                         if not dest_options:
                             dest_options = {d['hospital_name']: d['id'] for d in detachments}
@@ -487,9 +480,10 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                         transfer_date = st.date_input("تاريخ النقل الفعلي *:", value=date.today())
 
                     with t_col2:
-                        transfer_notes = st.text_area("أسباب وملاحظات أمر النقل:", placeholder="مثال: نقل لسد النقص في صيانة التكييف المركزي بأمر شعبة الصيانة...")
+                        transfer_notes = st.text_area("أسباب وملاحظات أمر النقل:", placeholder="مثال: نقل بناءً على مقتضيات المصلحة وسد النقص وتقريب مكان السكن...")
 
-                    submit_transfer = st.form_submit_button("🚀 تنفيذ وتوثيق حركة النقل", type="primary", use_container_width=True)
+                    transfer_btn_label = settings.get("btn_transfer_label", "🔄 تنفيذ وتوثيق حركة النقل")
+                    submit_transfer = st.form_submit_button(transfer_btn_label, type="primary", use_container_width=True)
 
                     if submit_transfer:
                         to_det_id = dest_options[to_hosp_name]
@@ -529,7 +523,12 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                         st.text_input("الرقم العسكري (للقراءة فقط):", value=target_tech['military_id'], disabled=True)
                         e_rank = st.selectbox("الرتبة العسكرية:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(target_tech['rank']) if target_tech['rank'] in MILITARY_RANKS else 0)
                         e_name = st.text_input("الاسم الرباعي:", value=target_tech['full_name'])
+                        
+                        cur_cat = target_tech.get('primary_category', 'سلاح الصيانة الملكي')
+                        e_cat = st.selectbox("الصنف الأساسي:", options=PRIMARY_CATEGORIES, index=PRIMARY_CATEGORIES.index(cur_cat) if cur_cat in PRIMARY_CATEGORIES else 0)
+                        
                         e_spec = st.selectbox("التخصص الفني:", options=SPECIALTIES, index=SPECIALTIES.index(target_tech['specialty']) if target_tech['specialty'] in SPECIALTIES else 0)
+                        e_job = st.text_input("المهنة الحالية / الوظيفة الفعلية:", value=target_tech.get('current_job', '') or '')
 
                     with ec2:
                         all_dets = {d['hospital_name']: d['id'] for d in detachments}
@@ -538,18 +537,18 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                             cur_idx = list(all_dets.keys()).index(target_tech['hospital_name'])
 
                         e_det_name = st.selectbox("المفرزة الحالية:", options=list(all_dets.keys()), index=cur_idx)
+                        e_residence = st.text_input("مكان السكن الفعلي:", value=target_tech.get('residence', '') or '')
                         
-                        # تحويل تاريخ الالتحاق
                         try:
-                            parsed_date = datetime.strptime(target_tech['join_date'], "%Y-%m-%d").date()
+                            parsed_date = datetime.strptime(str(target_tech['join_date']).strip(), "%Y-%m-%d").date()
                         except Exception:
                             parsed_date = date.today()
 
-                        e_join_date = st.date_input("تاريخ الالتحاق:", value=parsed_date)
+                        e_join_date = st.date_input("تاريخ الالتحاق بالمفرزة:", value=parsed_date)
                         e_phone = st.text_input("رقم الهاتف:", value=target_tech['phone_number'] or '')
                         e_eval = st.text_area("الملاحظات والتقييم الفني والأداء:", value=target_tech['evaluation_and_notes'] or '')
 
-                    save_tech_edit = st.form_submit_button("💾 حفظ التعديلات", type="primary", use_container_width=True)
+                    save_tech_edit = st.form_submit_button("💾 حفظ تعديلات الفني", type="primary", use_container_width=True)
 
                     if save_tech_edit:
                         success, err = db.update_technician(
@@ -557,6 +556,9 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                             e_rank,
                             e_name,
                             e_spec,
+                            e_cat,
+                            e_job,
+                            e_residence,
                             all_dets[e_det_name],
                             str(e_join_date),
                             e_phone,
@@ -572,7 +574,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                 # خيار الحذف النهائي
                 st.markdown("<br>", unsafe_allow_html=True)
                 with st.expander("🗑️ حذف الفني نهائياً من المنظومة"):
-                    st.error(f"⚠️ تنبيه: سيؤدي حذف الفني ({target_tech['full_name']}) إلى إزالته نهائياً من مرتبات المفرزة وحذف سجلاته.")
+                    st.error(f"⚠️ تنبيه: سيؤدي حذف الفني ({target_tech['full_name']}) إلى إزالته نهائياً من مرتبات المفرزة.")
                     del_confirm = st.checkbox(f"أؤكد الرغبة في حذف الفني صاحب الرقم العسكري ({edit_mil_id}) نهائياً.", key="del_check")
                     if del_confirm:
                         if st.button("تأكيد الحذف النهائي", type="primary", key="del_btn"):
@@ -596,7 +598,6 @@ elif menu_choice == "🔄 سجل حركات النقل":
     if mov_df.empty:
         st.info("ℹ️ لا توجد حركات نقل مسجلة في الأرشيف حتى الآن.")
     else:
-        # إحصائيات وبحث سريع
         m_col1, m_col2, m_col3 = st.columns([2, 1, 1])
         with m_col1:
             mov_search = st.text_input("بحث في سجل الحركات (بالاسم أو الرقم العسكري):", placeholder="بحث...")
@@ -606,7 +607,6 @@ elif menu_choice == "🔄 سجل حركات النقل":
         with m_col3:
             st.metric("إجمالي الحركات المسجلة", f"{len(mov_df)} حركة")
 
-        # تطبيق التصفية
         filtered_mov = mov_df.copy()
         if mov_search:
             filtered_mov = filtered_mov[
@@ -621,35 +621,221 @@ elif menu_choice == "🔄 سجل حركات النقل":
         st.markdown("#### 📜 جدول حركات النقل الموثقة")
         st.dataframe(filtered_mov, use_container_width=True, hide_index=True)
 
-        # زر تصدير السجل إلى Excel
         excel_mov = export_to_excel(filtered_mov, sheet_name="سجل حركات النقل")
         file_mov_name = f"سجل_حركات_النقل_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
 
+        export_btn_label = settings.get("btn_export_label", "📥 تصدير الكشف إلى Excel")
         st.download_button(
-            label="📥 تصدير سجل حركات النقل الكامل إلى Excel (.xlsx)",
+            label=f"{export_btn_label} (سجل النقل الكامل)",
             data=excel_mov,
             file_name=file_mov_name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key="dl_mov_excel"
         )
 
-        st.markdown("<br>", unsafe_allow_html=True)
 
-        # عرض أحدث الحركات كبطاقات زمنية سريعة
-        st.markdown("#### ⏱️ أحدث حركات النقل المسجلة:")
-        recent_moves = mov_df.head(5)
-        for _, row in recent_moves.iterrows():
-            st.markdown(f"""
-            <div style="background: #FFFFFF; border-right: 4px solid #0284C7; border-radius: 8px; padding: 12px 18px; margin-bottom: 8px; border-top: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; border-left: 1px solid #E2E8F0;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-weight: 700; color: #0F172A; font-size: 15px;">
-                        🎖️ {row['الرتبة']} / {row['اسم الفني']} ({row['الرقم العسكري']}) - {row['التخصص الفني']}
-                    </div>
-                    <div style="font-size: 12px; color: #64748B; font-weight: 600;">📅 {row['تاريخ النقل']}</div>
-                </div>
-                <div style="color: #334155; font-size: 13px; margin-top: 4px;">
-                    🔄 <b>مسار النقل:</b> من <span style="color: #DC2626; font-weight: 600;">{row['من مستشفى']}</span> إلى <span style="color: #15803D; font-weight: 600;">{row['إلى مستشفى']}</span>
-                </div>
-                {f'<div style="color: #64748B; font-size: 12px; margin-top: 2px;">📝 <i>{row["ملاحظات أمر النقل"]}</i></div>' if row["ملاحظات أمر النقل"] else ''}
-            </div>
-            """, unsafe_allow_html=True)
+# ==============================================================================
+# 5. الإعدادات وتخصيص المنظومة (Settings Screen)
+# ==============================================================================
+elif menu_choice == "⚙️ الإعدادات وتخصيص المنظومة":
+    styles.render_page_header(
+        "لوحة الإعدادات وتخصيص المنظومة",
+        "تعديل مسميات وهوية البرنامج، إدارة وتعديل المستشفيات، تخصيص مسميات الأزرار، والتحكم في ترتيب أعمدة الجداول",
+        "⚙️"
+    )
+
+    set_tab1, set_tab2, set_tab3, set_tab4 = st.tabs([
+        "🏢 هوية البرنامج ومسمياته",
+        "🏥 إدارة وتعديل أسماء المستشفيات",
+        "🏷️ تخصيص مسميات الأزرار",
+        "📊 ترتيب وظهور أعمدة الجداول (يمين / يسار)"
+    ])
+
+    # --------------------------------------------------------------------------
+    # تبويب 1: هوية ومسميات المنظومة
+    # --------------------------------------------------------------------------
+    with set_tab1:
+        st.markdown("#### 🏢 تخصيص اسم البرنامج والشعارات")
+        with st.form(key="app_identity_form"):
+            new_title = st.text_input("اسم البرنامج الرئيسي (عنوان الصفحة):", value=settings.get("app_title", ""))
+            new_sub = st.text_input("العنوان الفرعي للبرنامج:", value=settings.get("app_subtitle", ""))
+            new_sidebar = st.text_input("عنوان الشريط الجانبي (اسم الشعبة / القيادة):", value=settings.get("sidebar_title", ""))
+
+            save_identity = st.form_submit_button("💾 حفظ مسميات وهوية البرنامج", type="primary")
+            if save_identity:
+                db.update_app_settings(
+                    new_title,
+                    new_sub,
+                    new_sidebar,
+                    settings.get("btn_export_label", "📥 تصدير الكشف إلى Excel"),
+                    settings.get("btn_transfer_label", "🔄 تنفيذ وتوثيق حركة النقل"),
+                    settings.get("btn_save_shortages_label", "💾 حفظ وتحديث النواقص"),
+                    settings.get("btn_add_tech_label", "💾 حفظ وتسجيل الفني")
+                )
+                st.toast("✅ تم تحديث اسم وهوية البرنامج بنجاح!", icon="🏢")
+                st.rerun()
+
+    # --------------------------------------------------------------------------
+    # تبويب 2: إدارة وتعديل أسماء وبيانات المستشفيات والمفارز
+    # --------------------------------------------------------------------------
+    with set_tab2:
+        st.markdown("#### 🏥 تعديل أسماء المستشفيات والمفارز الحالية")
+        all_dets = db.get_detachments_list()
+
+        if all_dets:
+            det_edit_map = {f"{d['hospital_name']} ({d['governorate']})": d['id'] for d in all_dets}
+            selected_det_name = st.selectbox("اختر المستشفى المراد تعديل اسمه أو بياناته:", options=list(det_edit_map.keys()))
+            target_det_id = det_edit_map[selected_det_name]
+            target_det = db.get_detachment_by_id(target_det_id)
+
+            if target_det:
+                with st.form(key=f"edit_det_full_{target_det_id}"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        h_name = st.text_input("اسم المستشفى العسكري *:", value=target_det['hospital_name'])
+                        h_gov = st.selectbox("المحافظة *:", options=GOVERNORATES, index=GOVERNORATES.index(target_det['governorate']) if target_det['governorate'] in GOVERNORATES else 0)
+                        h_phone = st.text_input("هاتف التواصل / المفرزة:", value=target_det['contact_phone'] or '')
+                    with c2:
+                        h_rank = st.selectbox("رتبة مسؤول المفرزة *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(target_det['supervisor_rank']) if target_det['supervisor_rank'] in MILITARY_RANKS else 0)
+                        h_supervisor = st.text_input("اسم مسؤول المفرزة *:", value=target_det['supervisor_name'])
+                        h_notes = st.text_input("ملاحظات المفرزة العامة:", value=target_det['notes'] or '')
+
+                    save_hosp_btn = st.form_submit_button("💾 حفظ تعديلات المستشفى", type="primary", use_container_width=True)
+                    if save_hosp_btn:
+                        db.update_detachment_info(target_det_id, h_name, h_gov, h_rank, h_supervisor, h_phone, h_notes)
+                        st.toast("✅ تم تحديث بيانات واسم المستشفى بنجاح!", icon="🏥")
+                        st.rerun()
+
+                # حذف مستشفى
+                with st.expander(f"🗑️ حذف مستشفى ({target_det['hospital_name']}) من المنظومة"):
+                    st.warning("⚠️ تنبيه: سيؤدي الحذف إلى إزالة المستشفى من قائمة المفارز وفصل ارتباط فنييه.")
+                    if st.checkbox(f"تأكيد الرغبة في حذف المستشفى (معرف: {target_det_id})", key=f"del_hosp_{target_det_id}"):
+                        if st.button("حذف المستشفى نهائياً", type="primary", key=f"btn_del_hosp_{target_det_id}"):
+                            db.delete_detachment(target_det_id)
+                            st.toast("تم حذف المستشفى بنجاح.", icon="🗑️")
+                            st.rerun()
+
+        st.markdown("---")
+        st.markdown("#### ➕ إضافة مستشفى / مفرزة جديدة")
+        with st.form(key="add_hosp_settings_form", clear_on_submit=True):
+            a1, a2 = st.columns(2)
+            with a1:
+                new_h_name = st.text_input("اسم المستشفى العسكري الجديد *:")
+                new_h_gov = st.selectbox("المحافظة *:", options=GOVERNORATES, key="new_gov_set")
+                new_h_phone = st.text_input("هاتف التواصل:", key="new_ph_set")
+            with a2:
+                new_h_rank = st.selectbox("رتبة مسؤول المفرزة *:", options=MILITARY_RANKS, key="new_rank_set")
+                new_h_sup = st.text_input("اسم مسؤول المفرزة *:", key="new_sup_set")
+                new_h_short = st.text_area("النواقص والاحتياجات الأولية:", key="new_sh_set")
+                new_h_note = st.text_input("ملاحظات:", key="new_nt_set")
+
+            add_hosp_sub = st.form_submit_button("إضافة المستشفى للمنظومة", type="primary")
+            if add_hosp_sub:
+                if not new_h_name.strip() or not new_h_sup.strip():
+                    st.error("يرجى ملء الحقول الإجبارية (*)")
+                else:
+                    db.add_detachment(new_h_name.strip(), new_h_gov, new_h_rank, new_h_sup.strip(), new_h_phone.strip(), new_h_short.strip(), new_h_note.strip())
+                    st.toast("✅ تم إضافة المستشفى بنجاح!", icon="🏥")
+                    st.rerun()
+
+    # --------------------------------------------------------------------------
+    # تبويب 3: تخصيص مسميات الأزرار
+    # --------------------------------------------------------------------------
+    with set_tab3:
+        st.markdown("#### 🏷️ تخصيص نصوص ومسميات الأزرار في الواجهة")
+        with st.form(key="buttons_label_form"):
+            b1, b2 = st.columns(2)
+            with b1:
+                new_btn_export = st.text_input("مسمى زر تصدير ملفات Excel:", value=settings.get("btn_export_label", ""))
+                new_btn_transfer = st.text_input("مسمى زر تنفيذ حركة النقل:", value=settings.get("btn_transfer_label", ""))
+            with b2:
+                new_btn_short = st.text_input("مسمى زر حفظ النواقص والاحتياجات:", value=settings.get("btn_save_shortages_label", ""))
+                new_btn_add = st.text_input("مسمى زر حفظ وتسجيل الفني الجديد:", value=settings.get("btn_add_tech_label", ""))
+
+            save_btn_labels = st.form_submit_button("💾 حفظ مسميات الأزرار المخصصة", type="primary")
+            if save_btn_labels:
+                db.update_app_settings(
+                    settings.get("app_title", "نظام إدارة مفارز الصيانة العسكرية"),
+                    settings.get("app_subtitle", "إدارة القوى البشرية ومرتبات مفارز المستشفيات العسكرية بالمحافظات"),
+                    settings.get("sidebar_title", "شعبة الصيانة والتشغيل"),
+                    new_btn_export,
+                    new_btn_transfer,
+                    new_btn_short,
+                    new_btn_add
+                )
+                st.toast("✅ تم تحديث مسميات الأزرار بنجاح!", icon="🏷️")
+                st.rerun()
+
+    # --------------------------------------------------------------------------
+    # تبويب 4: التحكم في ترتيب وظهور أعمدة الجداول (يمين / يسار)
+    # --------------------------------------------------------------------------
+    with set_tab4:
+        st.markdown("#### 📊 التحكم في ترتيب وظهور أعمدة جدول الفنيين")
+        st.caption("يمكنك تقديم أو تأخير أي عمود (يمين / يسار في الجدول) أو تفعيل وإلغاء ظهور أي حقل بحسب رغبتك.")
+
+        current_cols = settings.get("columns_order", db.DEFAULT_TECH_COLUMNS)
+
+        st.markdown("##### 📌 الترتيب الحالي لأعمدة الجدول (من اليمين إلى اليسار):")
+        cols_display_str = " ⬅️ ".join([f"**[{i+1}] {col}**" for i, col in enumerate(current_cols)])
+        st.info(cols_display_str)
+
+        st.markdown("---")
+        st.markdown("##### 🔀 إعادة ترتيب عمود (تقديم / تأخير):")
+        r_col1, r_col2, r_col3 = st.columns([2, 1, 1])
+
+        with r_col1:
+            selected_col_to_move = st.selectbox("اختر العمود المراد تحريكه:", options=current_cols)
+        
+        idx = current_cols.index(selected_col_to_move)
+
+        with r_col2:
+            move_up = st.button("➡️ تحريك لليمين (تقديم)", disabled=(idx == 0), use_container_width=True)
+            if move_up and idx > 0:
+                current_cols[idx], current_cols[idx - 1] = current_cols[idx - 1], current_cols[idx]
+                db.update_columns_order(current_cols)
+                st.toast(f"تم تحريك عمود '{selected_col_to_move}' لليمين", icon="➡️")
+                st.rerun()
+
+        with r_col3:
+            move_down = st.button("⬅️ تحريك لليسار (تأخير)", disabled=(idx == len(current_cols) - 1), use_container_width=True)
+            if move_down and idx < len(current_cols) - 1:
+                current_cols[idx], current_cols[idx + 1] = current_cols[idx + 1], current_cols[idx]
+                db.update_columns_order(current_cols)
+                st.toast(f"تم تحريك عمود '{selected_col_to_move}' لليسار", icon="⬅️")
+                st.rerun()
+
+        st.markdown("---")
+        st.markdown("##### 👁️ تحديد الأعمدة الظاهرة في الجدول:")
+        with st.form(key="columns_selection_form"):
+            selected_visible_cols = []
+            c_cols = st.columns(3)
+            for i, col in enumerate(db.DEFAULT_TECH_COLUMNS):
+                with c_cols[i % 3]:
+                    is_checked = col in current_cols
+                    checked = st.checkbox(col, value=is_checked, key=f"chk_col_{i}")
+                    if checked:
+                        selected_visible_cols.append(col)
+
+            # الحفاظ على الترتيب الحالي للأعمدة المختارة
+            final_ordered = [c for c in current_cols if c in selected_visible_cols]
+            # إضافة أي أعمدة جديدة تم اختيارها
+            for c in selected_visible_cols:
+                if c not in final_ordered:
+                    final_ordered.append(c)
+
+            b_save_cols, b_reset_cols = st.columns(2)
+            with b_save_cols:
+                save_cols_btn = st.form_submit_button("💾 حفظ اختيار وترتيب الأعمدة", type="primary", use_container_width=True)
+                if save_cols_btn:
+                    if not final_ordered:
+                        st.error("يجب اختيار عمود واحد على الأقل.")
+                    else:
+                        db.update_columns_order(final_ordered)
+                        st.toast("✅ تم حفظ ترتيب وظهور الأعمدة بنجاح!", icon="📊")
+                        st.rerun()
+
+        # زر إعادة الضبط الافتراضي
+        if st.button("🔄 استعادة الترتيب الافتراضي للأعمدة", type="secondary"):
+            db.reset_columns_order()
+            st.toast("تمت استعادة الترتيب الافتراضي للأعمدة.", icon="🔄")
+            st.rerun()

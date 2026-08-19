@@ -1,14 +1,32 @@
 """
 قاعدة بيانات نظام إدارة القوى البشرية ومرتبات مفارز صيانة المستشفيات العسكرية
-Database models, SQLite operations, and seed data initialization.
+Database models, SQLite operations, Settings management, and Schema Migration.
 """
 
 import sqlite3
 import os
+import json
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 
 DB_NAME = "military_maintenance.db"
+
+# الأعمدة الافتراضية لجدول الفنيين بالترتيب القياسي
+DEFAULT_TECH_COLUMNS = [
+    "الرقم العسكري",
+    "الرتبة",
+    "الاسم الرباعي",
+    "الصنف الأساسي",
+    "التخصص الفني",
+    "المهنة الحالية",
+    "المستشفى الحالي",
+    "المحافظة",
+    "مكان السكن",
+    "تاريخ الالتحاق بالمفرزة",
+    "مدة الخدمة بالمفرزة",
+    "رقم الهاتف",
+    "الملاحظات والتقييم الفني"
+]
 
 def get_db_connection(db_path=DB_NAME):
     """إرجاع اتصال بقاعدة بيانات SQLite مع دعم الصفوف كقواميس"""
@@ -17,8 +35,56 @@ def get_db_connection(db_path=DB_NAME):
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
+def calculate_duration_arabic(join_date_str):
+    """احتساب مدة الخدمة في المفرزة باللغة العربية بدقة"""
+    if not join_date_str:
+        return "غير محدد"
+    try:
+        join_d = datetime.strptime(str(join_date_str).strip(), "%Y-%m-%d").date()
+        today = date.today()
+        if join_d > today:
+            return "تاريخ مستقبلي"
+        
+        # حساب الفارق بالأعوام والشهور
+        years = today.year - join_d.year
+        months = today.month - join_d.month
+        days = today.day - join_d.day
+
+        if days < 0:
+            months -= 1
+        if months < 0:
+            years -= 1
+            months += 12
+
+        parts = []
+        if years > 0:
+            if years == 1:
+                parts.append("سنة واحدة")
+            elif years == 2:
+                parts.append("سنتان")
+            elif 3 <= years <= 10:
+                parts.append(f"{years} سنوات")
+            else:
+                parts.append(f"{years} سنة")
+
+        if months > 0:
+            if months == 1:
+                parts.append("شهر واحد")
+            elif months == 2:
+                parts.append("شهران")
+            elif 3 <= months <= 10:
+                parts.append(f"{months} أشهر")
+            else:
+                parts.append(f"{months} شهر")
+
+        if not parts:
+            return "أقل من شهر"
+        return " و ".join(parts)
+    except Exception:
+        return str(join_date_str)
+
 def init_db(db_path=DB_NAME):
-    """إنشاء جداول قاعدة البيانات إذا لم تكن موجودة"""
+    """إنشاء وتحديث جداول قاعدة البيانات (Migration آمن بدون فقدان بيانات)"""
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 
@@ -43,6 +109,9 @@ def init_db(db_path=DB_NAME):
         rank TEXT NOT NULL,
         full_name TEXT NOT NULL,
         specialty TEXT NOT NULL,
+        primary_category TEXT DEFAULT 'سلاح الصيانة الملكي',
+        current_job TEXT DEFAULT '',
+        residence TEXT DEFAULT '',
         current_detachment_id INTEGER,
         join_date TEXT NOT NULL,
         phone_number TEXT,
@@ -66,14 +135,58 @@ def init_db(db_path=DB_NAME):
     );
     """)
 
+    # 4. جدول إعدادات وتخصيصات المنظومة (App Settings)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS app_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        app_title TEXT NOT NULL,
+        app_subtitle TEXT NOT NULL,
+        sidebar_title TEXT NOT NULL,
+        btn_export_label TEXT NOT NULL,
+        btn_transfer_label TEXT NOT NULL,
+        btn_save_shortages_label TEXT NOT NULL,
+        btn_add_tech_label TEXT NOT NULL,
+        columns_order_json TEXT NOT NULL
+    );
+    """)
+
+    # التحقق من وجود الحقول الجديدة في جدول technicians وعمل Alter Table إن لزم (Migration)
+    cursor.execute("PRAGMA table_info(technicians);")
+    existing_cols = [col["name"] for col in cursor.fetchall()]
+
+    if "primary_category" not in existing_cols:
+        cursor.execute("ALTER TABLE technicians ADD COLUMN primary_category TEXT DEFAULT 'سلاح الصيانة الملكي';")
+    if "current_job" not in existing_cols:
+        cursor.execute("ALTER TABLE technicians ADD COLUMN current_job TEXT DEFAULT '';")
+    if "residence" not in existing_cols:
+        cursor.execute("ALTER TABLE technicians ADD COLUMN residence TEXT DEFAULT '';")
+
+    # تهيئة صف الإعدادات الافتراضية إذا لم يكن موجوداً
+    cursor.execute("SELECT COUNT(*) FROM app_settings WHERE id = 1;")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("""
+        INSERT INTO app_settings (id, app_title, app_subtitle, sidebar_title, btn_export_label, btn_transfer_label, btn_save_shortages_label, btn_add_tech_label, columns_order_json)
+        VALUES (
+            1,
+            'نظام إدارة مفارز الصيانة العسكرية',
+            'إدارة القوى البشرية ومرتبات مفارز المستشفيات العسكرية بالمحافظات',
+            'شعبة الصيانة والتشغيل',
+            '📥 تصدير الكشف إلى Excel',
+            '🔄 تنفيذ وتوثيق حركة النقل',
+            '💾 حفظ وتحديث النواقص',
+            '💾 حفظ وتسجيل الفني',
+            ?
+        );
+        """, (json.dumps(DEFAULT_TECH_COLUMNS, ensure_ascii=False),))
+
     conn.commit()
     conn.close()
 
-    # التحقق من وجود بيانات أولية، إذا كانت فارغة يتم حقن البيانات التجريبية
+    # التحقق من وجود بيانات أولية
     seed_if_empty(db_path)
 
 def seed_if_empty(db_path=DB_NAME):
-    """حقن بيانات تجريبية في حال كانت الجداول فارغة"""
+    """حقن بيانات تجريبية موسعة تشمل الصنف والسكن والمهنة"""
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
 
@@ -140,41 +253,41 @@ def seed_if_empty(db_path=DB_NAME):
         cursor.execute("SELECT id, hospital_name FROM detachments;")
         hospitals = {row["hospital_name"]: row["id"] for row in cursor.fetchall()}
 
-        # 2. إضافة الفنيين الأوليين
+        # 2. إضافة الفنيين الأوليين مع الصنف الأساسي ومكان السكن والمهنة الحالية
         technicians_data = [
             # مستشفى الأمير راشد (إربد)
-            ("984512", "رقيب أول", "عبدالله محمود الخصاونة", "تكييف وتبريد", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-01-15", "0795111222", "فني ممتاز، متميز في صيانة الشيلرات المركزية ومحطات الأكسجين."),
-            ("874120", "رقيب", "عمر سامي بني هاني", "كهرباء قوى ومحولات", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-06-01", "0788222333", "ملتزم جداً وخبرة ممتازة في لوحات التوزيع الرئيسية."),
-            ("652198", "عريف", "سامر فؤاد بطاينة", "شبكات مياه وصحي", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2024-02-10", "0777333444", "أداء جيد، يتابع مضخات المياه العذبة ومحطة التحلية."),
+            ("984512", "رقيب أول", "عبدالله محمود الخصاونة", "تكييف وتبريد", "سلاح الصيانة الملكي", "فني تكييف مركزي وشيلرات", "إربد - لواء بني عبيد (إيدون)", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-01-15", "0795111222", "فني ممتاز، متميز في صيانة الشيلرات المركزية ومحطات الأكسجين."),
+            ("874120", "رقيب", "عمر سامي بني هاني", "كهرباء قوى ومحولات", "سلاح الصيانة الملكي", "كهربائي لوحات توزيع ومحولات", "إربد - كفر يوبا", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-06-01", "0788222333", "ملتزم جداً وخبرة ممتازة في لوحات التوزيع الرئيسية."),
+            ("652198", "عريف", "سامر فؤاد بطاينة", "شبكات مياه وصحي", "الخدمات الطبية الملكية", "فني تمديدات ومضخات تحلية", "إربد - حكما", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2024-02-10", "0777333444", "أداء جيد، يتابع مضخات المياه العذبة ومحطة التحلية."),
 
             # مستشفى الأمير علي (الكرك)
-            ("741852", "رقيب أول", "حمزة نايف المجالي", "كهرباء قوى ومحولات", hospitals["مستشفى الأمير علي بن الحسين العسكري"], "2022-11-01", "0776444555", "كفاءة فنية عالية، يدير لوحات الطوارئ والمولدات الاحتياطية بنجاح."),
-            ("963258", "عريف", "ليث خالد الصرايرة", "تكييف وتبريد", hospitals["مستشفى الأمير علي بن الحسين العسكري"], "2023-09-15", "0799555666", "متخصص في وحدات السبليت وغرف العناية الحثيثة."),
+            ("741852", "رقيب أول", "حمزة نايف المجالي", "كهرباء قوى ومحولات", "سلاح الصيانة الملكي", "مسؤول صيانة مولدات الطوارئ", "الكرك - لواء القصر", hospitals["مستشفى الأمير علي بن الحسين العسكري"], "2022-11-01", "0776444555", "كفاءة فنية عالية، يدير لوحات الطوارئ والمولدات الاحتياطية بنجاح."),
+            ("963258", "عريف", "ليث خالد الصرايرة", "تكييف وتبريد", "سلاح الهندسة الملكي", "فني سبليت وغرف عناية حثيثة", "الكرك - مؤتة", hospitals["مستشفى الأمير علي بن الحسين العسكري"], "2023-09-15", "0799555666", "متخصص في وحدات السبليت وغرف العناية الحثيثة."),
 
             # مستشفى الأمير هاشم (الزرقاء)
-            ("852963", "وكيل", "حسام جمال الغويري", "تكييف وتبريد", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2021-08-20", "0785666777", "أقدم فني بالمفرزة، خبرة واسعة في جميع أنظمة التبريد والميكانيك."),
-            ("369258", "رقيب", "يزن مخلد العموش", "كهرباء قوى ومحولات", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2023-03-01", "0774777888", "سرعة استجابة عالية للأعطال الكهربائية الطارئة."),
-            ("147852", "جندي أول", "معاذ علي الحنيطي", "شبكات مياه وصحي", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2024-01-10", "0798888999", "فني واعد، منضبط ويؤدي المهام بدقة."),
-            ("258147", "عريف", "براء فيصل الخلايلة", "إنشائي عام", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2023-11-20", "0771999000", "أعمال دهان وصيانة عامة للأبواب والقواطع."),
+            ("852963", "وكيل", "حسام جمال الغويري", "تكييف وتبريد", "سلاح الصيانة الملكي", "رئيس ورشة التكييف والميكانيك", "الزرقاء - حي معصوم", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2021-08-20", "0785666777", "أقدم فني بالمفرزة، خبرة واسعة في جميع أنظمة التبريد والميكانيك."),
+            ("369258", "رقيب", "يزن مخلد العموش", "كهرباء قوى ومحولات", "سلاح الصيانة الملكي", "فني كهرباء عامة وطوارئ", "المفرق - بلعما", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2023-03-01", "0774777888", "سرعة استجابة عالية للأعطال الكهربائية الطارئة."),
+            ("147852", "جندي أول", "معاذ علي الحنيطي", "شبكات مياه وصحي", "الخدمات الطبية الملكية", "سباك صحي ومتابعة خزانات", "عمان - سحاب", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2024-01-10", "0798888999", "فني واعد، منضبط ويؤدي المهام بدقة."),
+            ("258147", "عريف", "براء فيصل الخلايلة", "إنشائي عام", "سلاح الصيانة الملكي", "فني أعمال قواطع ودهان", "الزرقاء - الهاشمية", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2023-11-20", "0771999000", "أعمال دهان وصيانة عامة للأبواب والقواطع."),
 
             # مستشفى الأميرة هيا (جرش / عجلون)
-            ("357159", "رقيب", "أنس بسام العتوم", "تكييف وتبريد", hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2023-05-12", "0789111333", "مسؤول صيانة قسم غسيل الكلى والعناية الحثيثة."),
-            ("951357", "عريف", "مؤمن أحمد الزغول", "إنشائي عام", hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2024-04-01", "0772222444", "ملم بأعمال الصيانة الإنشائية والجبس بورد والألمنيوم."),
+            ("357159", "رقيب", "أنس بسام العتوم", "تكييف وتبريد", "سلاح الصيانة الملكي", "فني صيانة غسيل كلى وتبريد", "جرش - سوف", hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2023-05-12", "0789111333", "مسؤول صيانة قسم غسيل الكلى والعناية الحثيثة."),
+            ("951357", "عريف", "مؤمن أحمد الزغول", "إنشائي عام", "سلاح الهندسة الملكي", "فني جبس بورد وألمنيوم", "عجلون - عنجرة", hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2024-04-01", "0772222444", "ملم بأعمال الصيانة الإنشائية والجبس بورد والألمنيوم."),
 
             # مستشفى الملكة علياء (عمان)
-            ("159357", "رقيب أول", "رامي ناصر الحديد", "كهرباء قوى ومحولات", hospitals["مستشفى الملكة علياء العسكري"], "2022-04-10", "0793333555", "خبير صيانة أنظمة UPS والمحولات الرئيسية."),
-            ("753951", "رقيب", "جهاد توفيق المناصير", "شبكات مياه وصحي", hospitals["مستشفى الملكة علياء العسكري"], "2023-07-22", "0784444666", "يشرف على شبكات الصرف وغلايات البخار المركزية.")
+            ("159357", "رقيب أول", "رامي ناصر الحديد", "كهرباء قوى ومحولات", "سلاح الصيانة الملكي", "خبير صيانة أنظمة UPS وتحكم", "عمان - القويسمة", hospitals["مستشفى الملكة علياء العسكري"], "2022-04-10", "0793333555", "خبير صيانة أنظمة UPS والمحولات الرئيسية."),
+            ("753951", "رقيب", "جهاد توفيق المناصير", "شبكات مياه وصحي", "الخدمات الطبية الملكية", "مشرف غلايات بخار وشبكات صرف", "عمان - مرج الحمام", hospitals["مستشفى الملكة علياء العسكري"], "2023-07-22", "0784444666", "يشرف على شبكات الصرف وغلايات البخار المركزية.")
         ]
 
         cursor.executemany("""
-        INSERT INTO technicians (military_id, rank, full_name, specialty, current_detachment_id, join_date, phone_number, evaluation_and_notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT INTO technicians (military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, technicians_data)
         conn.commit()
 
         # 3. إضافة سجلات حركات نقل تجريبية سابقة
         movements_data = [
-            ("984512", hospitals["مستشفى الملكة علياء العسكري"], hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-01-15", "نقل لسد النقص في صيانة التكييف المركزي بإربد"),
+            ("984512", hospitals["مستشفى الملكة علياء العسكري"], hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-01-15", "نقل لسد النقص في صيانة التكييف المركزي بإربد وتقريب مكان السكن"),
             ("852963", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2021-08-20", "نقل بناءً على مقتضيات المصلحة العامة والخبرة الميدانية"),
             ("357159", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2023-05-12", "نقل لتعزيز كادر المفرزة في مستشفى الأميرة هيا")
         ]
@@ -186,6 +299,63 @@ def seed_if_empty(db_path=DB_NAME):
         conn.commit()
 
     conn.close()
+
+# --- إدارة الإعدادات (Settings API) ---
+
+def get_app_settings():
+    """جلب إعدادات المنظومة"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM app_settings WHERE id = 1;")
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        d = dict(row)
+        try:
+            d["columns_order"] = json.loads(d["columns_order_json"])
+        except Exception:
+            d["columns_order"] = DEFAULT_TECH_COLUMNS
+        return d
+    return {
+        "app_title": "نظام إدارة مفارز الصيانة العسكرية",
+        "app_subtitle": "إدارة القوى البشرية ومرتبات مفارز المستشفيات العسكرية بالمحافظات",
+        "sidebar_title": "شعبة الصيانة والتشغيل",
+        "btn_export_label": "📥 تصدير الكشف إلى Excel",
+        "btn_transfer_label": "🔄 تنفيذ وتوثيق حركة النقل",
+        "btn_save_shortages_label": "💾 حفظ وتحديث النواقص",
+        "btn_add_tech_label": "💾 حفظ وتسجيل الفني",
+        "columns_order": DEFAULT_TECH_COLUMNS
+    }
+
+def update_app_settings(app_title, app_subtitle, sidebar_title, btn_export_label, btn_transfer_label, btn_save_shortages_label, btn_add_tech_label):
+    """تحديث نصوص وهوية المنظومة ومسميات الأزرار"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    UPDATE app_settings
+    SET app_title = ?, app_subtitle = ?, sidebar_title = ?, btn_export_label = ?, btn_transfer_label = ?, btn_save_shortages_label = ?, btn_add_tech_label = ?
+    WHERE id = 1;
+    """, (app_title, app_subtitle, sidebar_title, btn_export_label, btn_transfer_label, btn_save_shortages_label, btn_add_tech_label))
+    conn.commit()
+    conn.close()
+    return True
+
+def update_columns_order(order_list):
+    """تحديث الترتيب المخصص لأعمدة جدول الفنيين"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    UPDATE app_settings
+    SET columns_order_json = ?
+    WHERE id = 1;
+    """, (json.dumps(order_list, ensure_ascii=False),))
+    conn.commit()
+    conn.close()
+    return True
+
+def reset_columns_order():
+    """إعادة ضبط ترتيب الأعمدة للترتيب الافتراضي"""
+    return update_columns_order(DEFAULT_TECH_COLUMNS)
 
 # --- دوال الاستعلام والبيانات (Queries) ---
 
@@ -246,7 +416,7 @@ def update_detachment_shortages(detachment_id, shortages_text):
     return True
 
 def update_detachment_info(detachment_id, hospital_name, governorate, supervisor_rank, supervisor_name, contact_phone, notes):
-    """تحديث البيانات الأساسية للمفرزة"""
+    """تحديث البيانات الأساسية للمفرزة / المستشفى"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -271,17 +441,36 @@ def add_detachment(hospital_name, governorate, supervisor_rank, supervisor_name,
     conn.close()
     return new_id
 
-def get_all_technicians_df():
-    """إرجاع جدول جميع الفنيين مع تفاصيل المستشفى والمحافظة كـ DataFrame"""
+def delete_detachment(detachment_id):
+    """حذف مفرزة / مستشفى من المنظومة"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # نقل أي فنيين مرتبطين بها إلى غير محدد
+        cursor.execute("UPDATE technicians SET current_detachment_id = NULL WHERE current_detachment_id = ?;", (detachment_id,))
+        cursor.execute("DELETE FROM detachments WHERE id = ?;", (detachment_id,))
+        conn.commit()
+        success = True
+    except Exception:
+        success = False
+    finally:
+        conn.close()
+    return success
+
+def get_all_technicians_df(apply_custom_columns=True):
+    """إرجاع جدول جميع الفنيين شاملاً الحقول الجديدة وتطبيق الترتيب المخصص للأعمدة"""
     conn = get_db_connection()
     query = """
     SELECT 
         t.military_id as "الرقم العسكري",
         t.rank as "الرتبة",
         t.full_name as "الاسم الرباعي",
+        COALESCE(t.primary_category, 'سلاح الصيانة الملكي') as "الصنف الأساسي",
         t.specialty as "التخصص الفني",
+        COALESCE(t.current_job, '') as "المهنة الحالية",
         COALESCE(d.hospital_name, 'غير محدد') as "المستشفى الحالي",
         COALESCE(d.governorate, 'غير محدد') as "المحافظة",
+        COALESCE(t.residence, '') as "مكان السكن",
         t.join_date as "تاريخ الالتحاق بالمفرزة",
         t.phone_number as "رقم الهاتف",
         t.evaluation_and_notes as "الملاحظات والتقييم الفني",
@@ -292,30 +481,39 @@ def get_all_technicians_df():
     """
     df = pd.read_sql_query(query, conn)
     conn.close()
+
+    if not df.empty:
+        # احتساب مدة الخدمة بالمفرزة
+        df["مدة الخدمة بالمفرزة"] = df["تاريخ الالتحاق بالمفرزة"].apply(calculate_duration_arabic)
+
+        if apply_custom_columns:
+            settings = get_app_settings()
+            ordered_cols = [col for col in settings.get("columns_order", DEFAULT_TECH_COLUMNS) if col in df.columns]
+            # التأكد من إبقاء detachment_id للفلترة
+            if "detachment_id" in df.columns and "detachment_id" not in ordered_cols:
+                ordered_cols.append("detachment_id")
+            df = df[ordered_cols]
+
     return df
 
-def get_technicians_by_detachment_df(detachment_id):
-    """إرجاع فنيي مفرزة محددة كـ DataFrame"""
-    conn = get_db_connection()
-    query = """
-    SELECT 
-        t.military_id as "الرقم العسكري",
-        t.rank as "الرتبة",
-        t.full_name as "الاسم الرباعي",
-        t.specialty as "التخصص الفني",
-        t.join_date as "تاريخ الالتحاق بالمفرزة",
-        t.phone_number as "رقم الهاتف",
-        t.evaluation_and_notes as "الملاحظات والتقييم الفني"
-    FROM technicians t
-    WHERE t.current_detachment_id = ?
-    ORDER BY t.rank ASC, t.full_name ASC;
-    """
-    df = pd.read_sql_query(query, conn, params=(detachment_id,))
-    conn.close()
-    return df
+def get_technicians_by_detachment_df(detachment_id, apply_custom_columns=True):
+    """إرجاع فنيي مفرزة محددة كـ DataFrame مع الحقول الموسعة"""
+    all_df = get_all_technicians_df(apply_custom_columns=False)
+    if all_df.empty:
+        return pd.DataFrame()
+    filtered = all_df[all_df["detachment_id"] == detachment_id].copy()
+    
+    if apply_custom_columns:
+        settings = get_app_settings()
+        ordered_cols = [col for col in settings.get("columns_order", DEFAULT_TECH_COLUMNS) if col in filtered.columns]
+        filtered = filtered[ordered_cols]
+    else:
+        filtered = filtered.drop(columns=["detachment_id"], errors="ignore")
+        
+    return filtered
 
 def get_technician_by_id(military_id):
-    """إرجاع بيانات فني محدد برقمه العسكري"""
+    """إرجاع بيانات فني محدد برقمه العسكري مع كافة الحقول"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -328,19 +526,19 @@ def get_technician_by_id(military_id):
     conn.close()
     return dict(row) if row else None
 
-def add_technician(military_id, rank, full_name, specialty, current_detachment_id, join_date, phone_number, evaluation_and_notes):
-    """إضافة فني جديد إلى المنظومة"""
+def add_technician(military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes):
+    """إضافة فني جديد إلى المنظومة مع الحقول الجديدة"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
-        INSERT INTO technicians (military_id, rank, full_name, specialty, current_detachment_id, join_date, phone_number, evaluation_and_notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-        """, (military_id, rank, full_name, specialty, current_detachment_id, join_date, phone_number, evaluation_and_notes))
+        INSERT INTO technicians (military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes))
         conn.commit()
         success = True
         err = None
-    except sqlite3.IntegrityError as e:
+    except sqlite3.IntegrityError:
         success = False
         err = "الرقم العسكري مسجل مسبقاً في المنظومة."
     except Exception as e:
@@ -350,16 +548,16 @@ def add_technician(military_id, rank, full_name, specialty, current_detachment_i
         conn.close()
     return success, err
 
-def update_technician(military_id, rank, full_name, specialty, current_detachment_id, join_date, phone_number, evaluation_and_notes):
-    """تعديل بيانات فني موجود"""
+def update_technician(military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes):
+    """تعديل بيانات فني موجود بالكامل"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
         UPDATE technicians 
-        SET rank = ?, full_name = ?, specialty = ?, current_detachment_id = ?, join_date = ?, phone_number = ?, evaluation_and_notes = ?
+        SET rank = ?, full_name = ?, specialty = ?, primary_category = ?, current_job = ?, residence = ?, current_detachment_id = ?, join_date = ?, phone_number = ?, evaluation_and_notes = ?
         WHERE military_id = ?;
-        """, (rank, full_name, specialty, current_detachment_id, join_date, phone_number, evaluation_and_notes, military_id))
+        """, (rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes, military_id))
         conn.commit()
         success = True
         err = None
@@ -378,7 +576,7 @@ def delete_technician(military_id):
         cursor.execute("DELETE FROM technicians WHERE military_id = ?;", (military_id,))
         conn.commit()
         success = True
-    except Exception as e:
+    except Exception:
         success = False
     finally:
         conn.close()
@@ -394,7 +592,6 @@ def transfer_technician(military_id, to_detachment_id, effective_date, notes="")
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # قراءة المفرزة الحالية
         cursor.execute("SELECT current_detachment_id FROM technicians WHERE military_id = ?;", (military_id,))
         row = cursor.fetchone()
         if not row:
@@ -436,7 +633,9 @@ def get_movement_logs_df():
         t.military_id as "الرقم العسكري",
         t.rank as "الرتبة",
         t.full_name as "اسم الفني",
+        COALESCE(t.primary_category, 'سلاح الصيانة الملكي') as "الصنف الأساسي",
         t.specialty as "التخصص الفني",
+        COALESCE(t.current_job, '') as "المهنة الحالية",
         COALESCE(d_from.hospital_name, 'المركز / غير محدد') as "من مستشفى",
         COALESCE(d_to.hospital_name, 'غير محدد') as "إلى مستشفى",
         m.notes as "ملاحظات أمر النقل"
@@ -476,6 +675,15 @@ def get_dashboard_stats():
     """)
     specialty_distribution = [dict(r) for r in cursor.fetchall()]
 
+    # التوزيع حسب الصنف الأساسي
+    cursor.execute("""
+    SELECT COALESCE(primary_category, 'سلاح الصيانة الملكي') as category, COUNT(*) as count 
+    FROM technicians 
+    GROUP BY category 
+    ORDER BY count DESC;
+    """)
+    category_distribution = [dict(r) for r in cursor.fetchall()]
+
     # التوزيع حسب المستشفيات
     cursor.execute("""
     SELECT d.hospital_name, d.governorate, COUNT(t.military_id) as count
@@ -502,6 +710,7 @@ def get_dashboard_stats():
         "total_movements": total_movements,
         "detachments_with_shortages": detachments_with_shortages,
         "specialty_distribution": specialty_distribution,
+        "category_distribution": category_distribution,
         "hospital_distribution": hospital_distribution,
         "shortages_list": shortages_list
     }
