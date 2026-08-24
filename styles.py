@@ -626,7 +626,7 @@ def render_rtl_table(df, max_height="550px", highlight_commander=False):
                 cells.append(f'<td{name_style}>{val}</td>')
             elif col == "الرقم العسكري":
                 cells.append(f'<td><span class="badge-mil-id">{val}</span></td>')
-            elif col in ["الصنف الأساسي", "التخصص الفني"]:
+            elif col in ["الصنف", "التخصص الفني", "الصنف الأساسي"]:
                 cells.append(f'<td><span class="badge-specialty">{val}</span></td>')
             elif col == "مدة الخدمة بالمفرزة":
                 cells.append(f'<td><b style="color: #15803D;">{val}</b></td>')
@@ -654,19 +654,18 @@ def render_technician_card(tech):
     if tech is None:
         return ""
     
-    rank = tech.get("الرتبة", "-")
-    name = tech.get("الاسم الرباعي", "-")
-    mil_id = tech.get("الرقم العسكري", "-")
-    category = tech.get("الصنف الأساسي", "-")
-    spec = tech.get("التخصص الفني", "-")
-    job = tech.get("المهنة الحالية", "-")
-    hosp = tech.get("المستشفى الحالي", "-")
-    gov = tech.get("المحافظة", "-")
-    residence = tech.get("مكان السكن", "-")
-    join_date = tech.get("تاريخ الالتحاق بالمفرزة", "-")
-    duration = tech.get("مدة الخدمة بالمفرزة", "-")
-    phone = tech.get("رقم الهاتف", "-")
-    notes = tech.get("الملاحظات والتقييم الفني", "")
+    rank = tech.get("الرتبة") or tech.get("rank") or "-"
+    name = tech.get("الاسم الرباعي") or tech.get("full_name") or tech.get("الاسم") or "-"
+    mil_id = tech.get("الرقم العسكري") or tech.get("military_id") or "-"
+    category = tech.get("الصنف") or tech.get("specialty") or tech.get("الصنف الأساسي") or "-"
+    job = tech.get("المهنة الحالية") or tech.get("current_job") or "-"
+    hosp = tech.get("المستشفى الحالي") or tech.get("hospital_name") or tech.get("المستشفى") or "-"
+    gov = tech.get("المحافظة") or tech.get("governorate") or "-"
+    residence = tech.get("مكان السكن") or tech.get("residence") or tech.get("السكن") or "-"
+    join_date = tech.get("تاريخ الالتحاق بالمفرزة") or tech.get("join_date") or tech.get("تاريخ الالتحاق") or "-"
+    duration = tech.get("مدة الخدمة بالمفرزة") or tech.get("duration") or "-"
+    phone = tech.get("رقم الهاتف") or tech.get("phone_number") or tech.get("الهاتف") or "-"
+    notes = tech.get("الملاحظات والتقييم الفني") or tech.get("evaluation_and_notes") or tech.get("الملاحظات") or ""
 
     notes_html = f"""
     <div class="id-card-notes">
@@ -688,8 +687,7 @@ def render_technician_card(tech):
                 <div class="id-card-mil-badge">الرقم العسكري: {mil_id}</div>
             </div>
             <div class="id-card-grid">
-                <div class="id-grid-item">🛡️ <b>الصنف الأساسي:</b> {category}</div>
-                <div class="id-grid-item">🔧 <b>التخصص الفني:</b> {spec}</div>
+                <div class="id-grid-item">🛡️ <b>الصنف:</b> {category}</div>
                 <div class="id-grid-item">💼 <b>المهنة الحالية:</b> {job}</div>
                 <div class="id-grid-item">🏥 <b>المستشفى / المفرزة:</b> {hosp} ({gov})</div>
                 <div class="id-grid-item">📍 <b>مكان السكن:</b> {residence}</div>

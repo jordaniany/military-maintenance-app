@@ -48,27 +48,16 @@ MILITARY_RANKS = [
     "مدني"
 ]
 
-# قائمة الأصناف العسكرية الأساسية
-PRIMARY_CATEGORIES = [
-    "سلاح الصيانة الملكي",
-    "الخدمات الطبية الملكية",
-    "سلاح الهندسة الملكي",
-    "سلاح الجو الملكي",
-    "قيادة سلاح اللاسلكي الملكي",
-    "التموين والنقل الملكي",
-    "المشاة والعمليات الخاصة",
-    "صنف آخر"
-]
-
-# قائمة التخصصات الفنية المطلوبة
-SPECIALTIES = [
+# قائمة أصناف الفنيين المعتمدة (المهن والتخصصات الفنية)
+MILITARY_CATEGORIES = [
     "تكييف وتبريد",
     "كهرباء قوى ومحولات",
     "شبكات مياه وصحي",
     "إنشائي عام",
     "أجهزة طبية وميكانيك",
-    "أخرى"
+    "صنف آخر"
 ]
+SPECIALTIES = MILITARY_CATEGORIES
 
 # قائمة المحافظات
 GOVERNORATES = [
@@ -179,12 +168,12 @@ if menu_choice == "📊 لوحة المؤشرات العامة":
         # رسم بياني: توزيع الفنيين حسب التخصص
         if stats["specialty_distribution"]:
             spec_df = pd.DataFrame(stats["specialty_distribution"])
-            spec_df.columns = ["التخصص", "العدد"]
+            spec_df.columns = ["الصنف", "العدد"]
             fig_spec = px.pie(
                 spec_df,
-                names="التخصص",
+                names="الصنف",
                 values="العدد",
-                title="توزيع القوة البشرية حسب التخصص الفني",
+                title="توزيع القوة البشرية حسب الصنف",
                 hole=0.45,
                 color_discrete_sequence=["#0F172A", "#15803D", "#0284C7", "#D97706", "#7E22CE", "#64748B"]
             )
@@ -330,7 +319,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                 st.markdown("""
                 <div style="font-size: 13px; color: #94A3B8; margin-bottom: 12px;">
                     💡 يمكنك رفع ملف إكسل يحتوي على كشف مرتبات الفنيين وسيتم إلحاقهم مباشرة بهذه المفرزة.
-                    الأعمدة المدعومة: <b>الرقم العسكري *، الرتبة، الاسم الرباعي *، الصنف الأساسي، التخصص الفني، المهنة الحالية، مكان السكن، تاريخ الالتحاق بالمفرزة، رقم الهاتف، الملاحظات</b>.
+                    الأعمدة المدعومة: <b>الرقم العسكري *، الرتبة، الاسم الرباعي *، الصنف، المهنة الحالية، مكان السكن، تاريخ الالتحاق بالمفرزة، رقم الهاتف، الملاحظات</b>.
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -353,7 +342,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                         detected_map = db.detect_column_mapping(excel_cols)
 
                         st.markdown("##### 🎯 مطابقة وتأكيد أعمدة ملف الإكسل:")
-                        st.caption("تأكد من اختيار عمود التخصص الفني والمهنة والرتبة المطابق لملفك:")
+                        st.caption("تأكد من اختيار عمود الصنف والمهنة والرتبة المطابق لملفك:")
 
                         mcol1, mcol2, mcol3 = st.columns(3)
                         with mcol1:
@@ -370,15 +359,11 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                         with mcol2:
                             spec_opts = ["(غير موجود)"] + excel_cols
                             spec_idx = spec_opts.index(detected_map["specialty"]) if "specialty" in detected_map and detected_map["specialty"] in spec_opts else (spec_opts.index(detected_map["current_job"]) if "current_job" in detected_map and detected_map["current_job"] in spec_opts else 0)
-                            sel_spec = st.selectbox("🔧 عمود التخصص الفني *:", options=spec_opts, index=spec_idx, key=f"map_spec_{selected_id}")
+                            sel_spec = st.selectbox("🛡️ عمود الصنف *:", options=spec_opts, index=spec_idx, key=f"map_spec_{selected_id}")
 
                             job_opts = ["(غير موجود)"] + excel_cols
                             job_idx = job_opts.index(detected_map["current_job"]) if "current_job" in detected_map and detected_map["current_job"] in job_opts else 0
                             sel_job = st.selectbox("💼 عمود المهنة الحالية:", options=job_opts, index=job_idx, key=f"map_job_{selected_id}")
-
-                            cat_opts = ["(غير موجود)"] + excel_cols
-                            cat_idx = cat_opts.index(detected_map["primary_category"]) if "primary_category" in detected_map and detected_map["primary_category"] in cat_opts else 0
-                            sel_cat = st.selectbox("🛡️ عمود الصنف الأساسي:", options=cat_opts, index=cat_idx, key=f"map_cat_{selected_id}")
 
                         with mcol3:
                             res_opts = ["(غير موجود)"] + excel_cols
@@ -399,7 +384,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                             "rank": sel_rank if sel_rank != "(غير موجود)" else None,
                             "specialty": sel_spec if sel_spec != "(غير موجود)" else None,
                             "current_job": sel_job if sel_job != "(غير موجود)" else None,
-                            "primary_category": sel_cat if sel_cat != "(غير موجود)" else None,
+                            "primary_category": None,
                             "residence": sel_res if sel_res != "(غير موجود)" else None,
                             "join_date": sel_join if sel_join != "(غير موجود)" else None,
                             "phone_number": sel_ph if sel_ph != "(غير موجود)" else None,
@@ -478,13 +463,13 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                 st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
                 apply_filters = st.form_submit_button("🔍 تطبيق الفلترة والبحث", type="primary", use_container_width=True)
 
-            # السطر الثاني: تصفية حسب المستشفى / المفرزة .. حسب التخصص الفني .. حسب المهنة الحالية
+            # السطر الثاني: تصفية حسب المستشفى / المفرزة .. حسب الصنف .. حسب المهنة الحالية
             r2_col1, r2_col2, r2_col3 = st.columns(3)
             with r2_col1:
                 hosp_options = ["الكل"] + [d['hospital_name'] for d in detachments]
                 hospital_filter = st.selectbox("🏥 تصفية حسب المستشفى / المفرزة:", options=hosp_options)
             with r2_col2:
-                specialty_filter = st.selectbox("🔧 تصفية حسب التخصص الفني:", options=["الكل"] + SPECIALTIES)
+                category_filter = st.selectbox("🛡️ تصفية حسب الصنف:", options=["الكل"] + MILITARY_CATEGORIES)
             with r2_col3:
                 job_options = ["الكل"] + existing_jobs
                 job_filter = st.selectbox("💼 تصفية حسب المهنة الحالية:", options=job_options)
@@ -502,8 +487,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
         if hospital_filter != "الكل" and "المستشفى الحالي" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["المستشفى الحالي"] == hospital_filter]
 
-        if specialty_filter != "الكل" and "التخصص الفني" in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df["التخصص الفني"] == specialty_filter]
+        if category_filter != "الكل" and "الصنف" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["الصنف"] == category_filter]
 
         if job_filter != "الكل" and "المهنة الحالية" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["المهنة الحالية"] == job_filter]
@@ -512,7 +497,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
         st.caption(f"📊 عدد الفنيين المطابقين للبحث: **{len(filtered_df)}** من إجمالي **{len(all_tech_df)}**")
 
         # عرض جدول النتائج بالمعلومات المحددة
-        TARGET_RESULT_COLUMNS = ["الرتبة", "الاسم الرباعي", "الصنف الأساسي", "المهنة الحالية", "المستشفى الحالي", "مدة الخدمة بالمفرزة"]
+        TARGET_RESULT_COLUMNS = ["الرتبة", "الاسم الرباعي", "الصنف", "المهنة الحالية", "المستشفى الحالي", "مدة الخدمة بالمفرزة"]
         display_columns = [col for col in TARGET_RESULT_COLUMNS if col in filtered_df.columns]
         display_df = filtered_df[display_columns]
         st.markdown(styles.render_rtl_table(display_df), unsafe_allow_html=True)
@@ -572,8 +557,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                             edit_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(selected_tech['الرتبة']) if selected_tech['الرتبة'] in MILITARY_RANKS else 0)
                             edit_name = st.text_input("الاسم الرباعي *:", value=selected_tech['الاسم الرباعي'])
                             st.text_input("الرقم العسكري (ثابت):", value=selected_tech['الرقم العسكري'], disabled=True)
-                            edit_cat = st.selectbox("الصنف الأساسي *:", options=PRIMARY_CATEGORIES, index=PRIMARY_CATEGORIES.index(selected_tech['الصنف الأساسي']) if selected_tech['الصنف الأساسي'] in PRIMARY_CATEGORIES else 0)
-                            edit_spec = st.selectbox("التخصص الفني *:", options=SPECIALTIES, index=SPECIALTIES.index(selected_tech['التخصص الفني']) if selected_tech['التخصص الفني'] in SPECIALTIES else 0)
+                            cur_cat_val = selected_tech.get('الصنف') or selected_tech.get('specialty') or ''
+                            edit_cat = st.selectbox("الصنف *:", options=MILITARY_CATEGORIES, index=MILITARY_CATEGORIES.index(cur_cat_val) if cur_cat_val in MILITARY_CATEGORIES else 0)
                         with c_e2:
                             edit_job = st.text_input("المهنة الحالية بالمفرزة:", value=selected_tech.get('المهنة الحالية', '') or '')
                             det_dict = {d['hospital_name']: d['id'] for d in detachments}
@@ -599,8 +584,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                                     selected_tech['الرقم العسكري'],
                                     edit_rank,
                                     edit_name.strip(),
-                                    edit_spec,
                                     edit_cat,
+                                    None,
                                     edit_job.strip(),
                                     edit_res.strip(),
                                     t_det_id,
@@ -637,8 +622,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                 tech_mil_id = st.text_input("الرقم العسكري (مفتاح فريد) *:", placeholder="مثال: 987654")
                 tech_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=2)
                 tech_name = st.text_input("الاسم الرباعي *:", placeholder="مثال: أحمد محمد علي حسن")
-                tech_category = st.selectbox("الصنف الأساسي *:", options=PRIMARY_CATEGORIES, index=0)
-                tech_specialty = st.selectbox("التخصص الفني *:", options=SPECIALTIES)
+                tech_category = st.selectbox("الصنف *:", options=MILITARY_CATEGORIES)
                 tech_job = st.text_input("المهنة الحالية / الوظيفة الفعلية بالمفرزة:", placeholder="مثال: فني تكييف شيلرات وغرف عمليات")
 
             with col_b:
@@ -661,8 +645,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                         tech_mil_id.strip(),
                         tech_rank,
                         tech_name.strip(),
-                        tech_specialty,
                         tech_category,
+                        None,
                         tech_job.strip(),
                         tech_residence.strip(),
                         det_id,
@@ -702,8 +686,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                 duration_arabic = db.calculate_duration_arabic(tech_info.get("join_date", ""))
                 st.markdown(f"""
                 <div style="background: #F1F5F9; border-radius: 8px; padding: 14px; margin: 10px 0; border: 1px solid #CBD5E1;">
-                    <div><b>الرقم العسكري:</b> {tech_info['military_id']} | <b>الاسم:</b> {tech_info['rank']} / {tech_info['full_name']} | <b>الصنف:</b> {tech_info.get('primary_category', 'سلاح الصيانة الملكي')}</div>
-                    <div><b>التخصص:</b> {tech_info['specialty']} | <b>المهنة الحالية:</b> {tech_info.get('current_job', 'غير محدد')} | <b>مكان السكن:</b> {tech_info.get('residence', 'غير محدد')}</div>
+                    <div><b>الرقم العسكري:</b> {tech_info['military_id']} | <b>الاسم:</b> {tech_info['rank']} / {tech_info['full_name']} | <b>الصنف:</b> {tech_info.get('specialty', '')}</div>
+                    <div><b>المهنة الحالية:</b> {tech_info.get('current_job', 'غير محدد')} | <b>مكان السكن:</b> {tech_info.get('residence', 'غير محدد')}</div>
                     <div><b>المفرزة الحالية:</b> {tech_info['hospital_name'] or 'غير محدد'} ({tech_info['governorate'] or ''}) | <b>تاريخ الالتحاق:</b> {tech_info['join_date']} (خدمة بالمفرزة: <b style="color: #15803D;">{duration_arabic}</b>)</div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -763,10 +747,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                         e_rank = st.selectbox("الرتبة العسكرية:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(target_tech['rank']) if target_tech['rank'] in MILITARY_RANKS else 0)
                         e_name = st.text_input("الاسم الرباعي:", value=target_tech['full_name'])
                         
-                        cur_cat = target_tech.get('primary_category', 'سلاح الصيانة الملكي')
-                        e_cat = st.selectbox("الصنف الأساسي:", options=PRIMARY_CATEGORIES, index=PRIMARY_CATEGORIES.index(cur_cat) if cur_cat in PRIMARY_CATEGORIES else 0)
-                        
-                        e_spec = st.selectbox("التخصص الفني:", options=SPECIALTIES, index=SPECIALTIES.index(target_tech['specialty']) if target_tech['specialty'] in SPECIALTIES else 0)
+                        cur_cat_val = target_tech.get('specialty') or ''
+                        e_cat = st.selectbox("الصنف:", options=MILITARY_CATEGORIES, index=MILITARY_CATEGORIES.index(cur_cat_val) if cur_cat_val in MILITARY_CATEGORIES else 0)
                         e_job = st.text_input("المهنة الحالية / الوظيفة الفعلية:", value=target_tech.get('current_job', '') or '')
 
                     with ec2:
@@ -794,8 +776,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                             edit_mil_id,
                             e_rank,
                             e_name,
-                            e_spec,
                             e_cat,
+                            None,
                             e_job,
                             e_residence,
                             all_dets[e_det_name],

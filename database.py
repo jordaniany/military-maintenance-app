@@ -16,8 +16,7 @@ DEFAULT_TECH_COLUMNS = [
     "الرقم العسكري",
     "الرتبة",
     "الاسم الرباعي",
-    "الصنف الأساسي",
-    "التخصص الفني",
+    "الصنف",
     "المهنة الحالية",
     "المستشفى الحالي",
     "المحافظة",
@@ -561,8 +560,7 @@ def get_all_technicians_df(apply_custom_columns=True):
         t.military_id as "الرقم العسكري",
         t.rank as "الرتبة",
         t.full_name as "الاسم الرباعي",
-        COALESCE(t.primary_category, 'سلاح الصيانة الملكي') as "الصنف الأساسي",
-        t.specialty as "التخصص الفني",
+        COALESCE(t.specialty, '') as "الصنف",
         COALESCE(t.current_job, '') as "المهنة الحالية",
         COALESCE(d.hospital_name, 'غير محدد') as "المستشفى الحالي",
         COALESCE(d.governorate, 'غير محدد') as "المحافظة",
@@ -734,8 +732,7 @@ def get_movement_logs_df():
         t.military_id as "الرقم العسكري",
         t.rank as "الرتبة",
         t.full_name as "اسم الفني",
-        COALESCE(t.primary_category, 'سلاح الصيانة الملكي') as "الصنف الأساسي",
-        t.specialty as "التخصص الفني",
+        COALESCE(t.specialty, '') as "الصنف",
         COALESCE(t.current_job, '') as "المهنة الحالية",
         COALESCE(d_from.hospital_name, 'المركز / غير محدد') as "من مستشفى",
         COALESCE(d_to.hospital_name, 'غير محدد') as "إلى مستشفى",
@@ -767,23 +764,14 @@ def get_dashboard_stats():
     cursor.execute("SELECT COUNT(*) FROM detachments WHERE TRIM(COALESCE(staffing_shortages, '')) != '';")
     detachments_with_shortages = cursor.fetchone()[0]
 
-    # التوزيع حسب التخصص
+    # التوزيع حسب الصنف
     cursor.execute("""
-    SELECT specialty, COUNT(*) as count 
+    SELECT specialty as specialty, COUNT(*) as count 
     FROM technicians 
     GROUP BY specialty 
     ORDER BY count DESC;
     """)
     specialty_distribution = [dict(r) for r in cursor.fetchall()]
-
-    # التوزيع حسب الصنف الأساسي
-    cursor.execute("""
-    SELECT COALESCE(primary_category, 'سلاح الصيانة الملكي') as category, COUNT(*) as count 
-    FROM technicians 
-    GROUP BY category 
-    ORDER BY count DESC;
-    """)
-    category_distribution = [dict(r) for r in cursor.fetchall()]
 
     # التوزيع حسب المستشفيات
     cursor.execute("""
@@ -811,7 +799,6 @@ def get_dashboard_stats():
         "total_movements": total_movements,
         "detachments_with_shortages": detachments_with_shortages,
         "specialty_distribution": specialty_distribution,
-        "category_distribution": category_distribution,
         "hospital_distribution": hospital_distribution,
         "shortages_list": shortages_list
     }
@@ -845,8 +832,7 @@ def generate_technicians_template():
             "الرقم العسكري": "100200",
             "الرتبة": "رقيب",
             "الاسم الرباعي": "محمد أحمد إبراهيم خليل",
-            "الصنف الأساسي": "سلاح الصيانة الملكي",
-            "التخصص الفني": "تكييف وتبريد",
+            "الصنف": "تكييف وتبريد",
             "المهنة الحالية": "مسؤول صيانة التكييف المركزي",
             "مكان السكن": "عمان - طبربور",
             "تاريخ الالتحاق بالمفرزة": "2023-05-10",
@@ -857,8 +843,7 @@ def generate_technicians_template():
             "الرقم العسكري": "300400",
             "الرتبة": "عريف",
             "الاسم الرباعي": "خالد محمود عبد الله يوسف",
-            "الصنف الأساسي": "سلاح الصيانة الملكي",
-            "التخصص الفني": "كهرباء قوى ومحولات",
+            "الصنف": "كهرباء قوى ومحولات",
             "المهنة الحالية": "فني محولات ولوحات توزيع",
             "مكان السكن": "الزرقاء - حي معصوم",
             "تاريخ الالتحاق بالمفرزة": "2024-01-15",
@@ -880,8 +865,7 @@ def detect_column_mapping(df_columns):
         "military_id": ["الرقم العسكري", "رقم عسكري", "الرقم", "ر.ع", "ر ع", "military_id", "id", "الرقم_العسكري"],
         "rank": ["الرتبة", "رتبة", "الرتبة العسكرية", "rank"],
         "full_name": ["الاسم الرباعي", "الاسم", "اسم الفني", "الاسم الكامل", "اسم الفرد", "الاسم الثلاثي", "full_name", "name"],
-        "primary_category": ["الصنف الأساسي", "الصنف", "السلاح", "الوحدة", "التشكيل", "primary_category", "category"],
-        "specialty": ["التخصص الفني", "التخصص", "تخصص", "الاختصاص", "اختصاص", "المهنة الفنية", "المسمى الفني", "الحرفة", "الصنعة", "specialty"],
+        "specialty": ["الصنف", "صنف", "الصنف الفني", "التخصص الفني", "التخصص", "تخصص", "الاختصاص", "اختصاص", "المهنة الفنية", "المسمى الفني", "الحرفة", "الصنعة", "specialty", "category"],
         "current_job": ["المهنة الحالية", "المهنة", "الوظيفة الحالية", "الوظيفة", "طبيعة العمل", "الواجب", "المهنة الفعلية", "current_job", "job"],
         "residence": ["مكان السكن", "السكن", "العنوان", "مكان الإقامة", "المنطقة", "residence", "address"],
         "join_date": ["تاريخ الالتحاق بالمفرزة", "تاريخ الالتحاق", "تاريخ التعيين", "تاريخ النقل", "تاريخ الانفكاك", "التاريخ", "join_date"],
