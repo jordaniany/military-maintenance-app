@@ -261,7 +261,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                 <div class="detachment-info-title">🏥 {selected_detachment['hospital_name']}</div>
                 <div>
                     <span class="detachment-pill">📍 المحافظة: <b>{selected_detachment['governorate']}</b></span>
-                    <span class="detachment-pill" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #F59E0B; color: #FEF3C7;">👑 قائد المفرزة (الأعلى رتبة): <b style="color: #FDE68A;">{selected_detachment['supervisor_rank']} / {selected_detachment['supervisor_name']}</b></span>
+                    <span class="detachment-pill" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #F59E0B; color: #FEF3C7;">👑 قائد المفرزة: <b style="color: #FDE68A;">{selected_detachment['supervisor_rank']} / {selected_detachment['supervisor_name']}</b></span>
                     <span class="detachment-pill">📞 رقم التواصل: <b>{selected_detachment['contact_phone'] or 'غير محدد'}</b></span>
                 </div>
                 {f'<div style="margin-top: 12px; color: #94A3B8; font-size: 13px;">📝 <b>ملاحظات المفرزة:</b> {selected_detachment["notes"]}</div>' if selected_detachment["notes"] else ''}
