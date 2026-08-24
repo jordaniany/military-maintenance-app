@@ -459,17 +459,13 @@ def delete_detachment(detachment_id):
 
 # جدول أوزان الأقدمية للرتب العسكرية من الأعلى إلى الأدنى
 MILITARY_RANK_SENIORITY = {
-    "لواء": 120,
-    "عميد": 110,
-    "عقيد": 100,
     "مقدم": 90,
     "رائد": 80,
     "نقيب": 70,
+    "ملازم/1": 60,
     "ملازم أول": 60,
     "ملازم 1": 60,
     "ملازم": 50,
-    "ملازم ثاني": 50,
-    "رئيس رقباء": 45,
     "وكيل أول": 40,
     "وكيل 1": 40,
     "وكيل": 30,
@@ -479,9 +475,11 @@ MILITARY_RANK_SENIORITY = {
     "عريف": 10,
     "جندي أول": 5,
     "جندي 1": 5,
-    "جندي": 2,
-    "جندي مكلف": 1,
-    "مكلف": 1
+    "جندي مكلف": 3,
+    "جندي": 3,
+    "مكلف": 3,
+    "مدني": 1,
+    "مستخدم مدني": 1
 }
 
 def get_rank_weight(rank_str):
@@ -491,8 +489,18 @@ def get_rank_weight(rank_str):
     clean_r = str(rank_str).strip()
     return MILITARY_RANK_SENIORITY.get(clean_r, 0)
 
+def get_mil_id_sort_key(mil_id_val):
+    """إرجاع الرقم العسكري كرقم صحيح للترتيب العددي الأقدم (الرقم الأقل أولاً)"""
+    if mil_id_val is None or pd.isna(mil_id_val):
+        return 999999999
+    try:
+        digits = ''.join(filter(str.isdigit, str(mil_id_val)))
+        return int(digits) if digits else 999999999
+    except Exception:
+        return 999999999
+
 def get_all_technicians_df(apply_custom_columns=True):
-    """إرجاع جدول جميع الفنيين مرتباً افتراضياً حسب الرتبة العسكرية (من الأعلى إلى الأدنى)"""
+    """إرجاع جدول جميع الفنيين مرتباً حسب الرتبة العسكرية (من الأعلى للأدنى) ثم الرقم العسكري الأقل"""
     conn = get_db_connection()
     query = """
     SELECT 
@@ -519,10 +527,11 @@ def get_all_technicians_df(apply_custom_columns=True):
         # احتساب مدة الخدمة بالمفرزة
         df["مدة الخدمة بالمفرزة"] = df["تاريخ الالتحاق بالمفرزة"].apply(calculate_duration_arabic)
 
-        # الترتيب الافتراضي العسكري: من أعلى رتبة إلى أدنى رتبة ثم أبجدياً بالاسم
+        # الترتيب الافتراضي: الرتبة العسكرية (من الأعلى للأدنى)، ثم الرقم العسكري الأقل
         df["_rank_weight"] = df["الرتبة"].apply(get_rank_weight)
-        df = df.sort_values(by=["_rank_weight", "الاسم الرباعي"], ascending=[False, True]).reset_index(drop=True)
-        df = df.drop(columns=["_rank_weight"], errors="ignore")
+        df["_mil_sort"] = df["الرقم العسكري"].apply(get_mil_id_sort_key)
+        df = df.sort_values(by=["_rank_weight", "_mil_sort"], ascending=[False, True]).reset_index(drop=True)
+        df = df.drop(columns=["_rank_weight", "_mil_sort"], errors="ignore")
 
         if apply_custom_columns:
             settings = get_app_settings()
