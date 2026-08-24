@@ -347,12 +347,69 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                 if up_file is not None:
                     try:
                         preview_df = pd.read_excel(up_file)
-                        st.markdown(f"##### 👁️ معاينة البيانات المستخرجة من الملف ({len(preview_df)} سجل):")
+                        excel_cols = list(preview_df.columns)
+                        detected_map = db.detect_column_mapping(excel_cols)
+
+                        st.markdown("##### 🎯 مطابقة وتأكيد أعمدة ملف الإكسل:")
+                        st.caption("تأكد من اختيار عمود التخصص الفني والمهنة والرتبة المطابق لملفك:")
+
+                        mcol1, mcol2, mcol3 = st.columns(3)
+                        with mcol1:
+                            mil_idx = excel_cols.index(detected_map["military_id"]) if "military_id" in detected_map and detected_map["military_id"] in excel_cols else 0
+                            sel_mil = st.selectbox("📌 عمود الرقم العسكري *:", options=excel_cols, index=mil_idx, key=f"map_mil_{selected_id}")
+
+                            name_idx = excel_cols.index(detected_map["full_name"]) if "full_name" in detected_map and detected_map["full_name"] in excel_cols else min(1, len(excel_cols)-1)
+                            sel_name = st.selectbox("👤 عمود الاسم الرباعي *:", options=excel_cols, index=name_idx, key=f"map_name_{selected_id}")
+
+                            rank_opts = ["(غير موجود)"] + excel_cols
+                            rank_idx = rank_opts.index(detected_map["rank"]) if "rank" in detected_map and detected_map["rank"] in rank_opts else 0
+                            sel_rank = st.selectbox("🎖️ عمود الرتبة:", options=rank_opts, index=rank_idx, key=f"map_rank_{selected_id}")
+
+                        with mcol2:
+                            spec_opts = ["(غير موجود)"] + excel_cols
+                            spec_idx = spec_opts.index(detected_map["specialty"]) if "specialty" in detected_map and detected_map["specialty"] in spec_opts else (spec_opts.index(detected_map["current_job"]) if "current_job" in detected_map and detected_map["current_job"] in spec_opts else 0)
+                            sel_spec = st.selectbox("🔧 عمود التخصص الفني *:", options=spec_opts, index=spec_idx, key=f"map_spec_{selected_id}")
+
+                            job_opts = ["(غير موجود)"] + excel_cols
+                            job_idx = job_opts.index(detected_map["current_job"]) if "current_job" in detected_map and detected_map["current_job"] in job_opts else 0
+                            sel_job = st.selectbox("💼 عمود المهنة الحالية:", options=job_opts, index=job_idx, key=f"map_job_{selected_id}")
+
+                            cat_opts = ["(غير موجود)"] + excel_cols
+                            cat_idx = cat_opts.index(detected_map["primary_category"]) if "primary_category" in detected_map and detected_map["primary_category"] in cat_opts else 0
+                            sel_cat = st.selectbox("🛡️ عمود الصنف الأساسي:", options=cat_opts, index=cat_idx, key=f"map_cat_{selected_id}")
+
+                        with mcol3:
+                            res_opts = ["(غير موجود)"] + excel_cols
+                            res_idx = res_opts.index(detected_map["residence"]) if "residence" in detected_map and detected_map["residence"] in res_opts else 0
+                            sel_res = st.selectbox("🏠 عمود مكان السكن:", options=res_opts, index=res_idx, key=f"map_res_{selected_id}")
+
+                            join_opts = ["(غير موجود)"] + excel_cols
+                            join_idx = join_opts.index(detected_map["join_date"]) if "join_date" in detected_map and detected_map["join_date"] in join_opts else 0
+                            sel_join = st.selectbox("📅 عمود تاريخ الالتحاق:", options=join_opts, index=join_idx, key=f"map_join_{selected_id}")
+
+                            ph_opts = ["(غير موجود)"] + excel_cols
+                            ph_idx = ph_opts.index(detected_map["phone_number"]) if "phone_number" in detected_map and detected_map["phone_number"] in ph_opts else 0
+                            sel_ph = st.selectbox("📞 عمود رقم الهاتف:", options=ph_opts, index=ph_idx, key=f"map_ph_{selected_id}")
+
+                        custom_mapping = {
+                            "military_id": sel_mil,
+                            "full_name": sel_name,
+                            "rank": sel_rank if sel_rank != "(غير موجود)" else None,
+                            "specialty": sel_spec if sel_spec != "(غير موجود)" else None,
+                            "current_job": sel_job if sel_job != "(غير موجود)" else None,
+                            "primary_category": sel_cat if sel_cat != "(غير موجود)" else None,
+                            "residence": sel_res if sel_res != "(غير موجود)" else None,
+                            "join_date": sel_join if sel_join != "(غير موجود)" else None,
+                            "phone_number": sel_ph if sel_ph != "(غير موجود)" else None,
+                            "evaluation_and_notes": None
+                        }
+
+                        st.markdown(f"##### 👁️ معاينة أول 10 سجلات من الملف المرفوع ({len(preview_df)} سجل):")
                         st.markdown(styles.render_rtl_table(preview_df.head(10)), unsafe_allow_html=True)
 
                         if st.button(f"🚀 تأكيد استيراد ({len(preview_df)}) فني إلى المفرزة", type="primary", key=f"btn_do_import_{selected_id}"):
                             with st.spinner("جاري استيراد وحفظ البيانات في قاعدة البيانات..."):
-                                res = db.import_technicians_from_df(preview_df, selected_id, update_existing=update_existing_techs)
+                                res = db.import_technicians_from_df(preview_df, selected_id, update_existing=update_existing_techs, custom_col_map=custom_mapping)
                                 
                                 if res.get("success"):
                                     st.success(f"""

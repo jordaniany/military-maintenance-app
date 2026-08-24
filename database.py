@@ -771,45 +771,64 @@ def generate_technicians_template():
         df_template.to_excel(writer, index=False, sheet_name="قالب_الفنيين")
     return output.getvalue()
 
-def import_technicians_from_df(df, detachment_id, update_existing=True):
+def detect_column_mapping(df_columns):
     """
-    استيراد مرتبات وفنيين من DataFrame إلى مفرزة محددة مع مطابقة ذكية للأعمدة
+    اكتشاف ومطابقة أعمدة ملف الإكسل مع حقول المنظومة بدقة (تطابق تام أولاً ثم جزئي)
     """
     column_mapping_aliases = {
-        "military_id": ["الرقم العسكري", "رقم عسكري", "الرقم", "military_id", "id"],
-        "rank": ["الرتبة", "رتبة", "rank"],
-        "full_name": ["الاسم الرباعي", "الاسم", "اسم الفني", "الاسم الكامل", "full_name", "name"],
-        "primary_category": ["الصنف الأساسي", "الصنف", "السلاح", "primary_category", "category"],
-        "specialty": ["التخصص الفني", "التخصص", "specialty"],
-        "current_job": ["المهنة الحالية", "المهنة", "الوظيفة الحالية", "الوظيفة", "current_job", "job"],
-        "residence": ["مكان السكن", "السكن", "العنوان", "residence", "address"],
-        "join_date": ["تاريخ الالتحاق بالمفرزة", "تاريخ الالتحاق", "تاريخ التعيين", "join_date"],
-        "phone_number": ["رقم الهاتف", "الهاتف", "رقم الموبايل", "الموبايل", "phone_number", "phone"],
-        "evaluation_and_notes": ["الملاحظات والتقييم الفني", "الملاحظات", "ملاحظات", "التقييم", "evaluation_and_notes", "notes"]
+        "military_id": ["الرقم العسكري", "رقم عسكري", "الرقم", "ر.ع", "ر ع", "military_id", "id", "الرقم_العسكري"],
+        "rank": ["الرتبة", "رتبة", "الرتبة العسكرية", "rank"],
+        "full_name": ["الاسم الرباعي", "الاسم", "اسم الفني", "الاسم الكامل", "اسم الفرد", "الاسم الثلاثي", "full_name", "name"],
+        "primary_category": ["الصنف الأساسي", "الصنف", "السلاح", "الوحدة", "التشكيل", "primary_category", "category"],
+        "specialty": ["التخصص الفني", "التخصص", "تخصص", "الاختصاص", "اختصاص", "المهنة الفنية", "المسمى الفني", "الحرفة", "الصنعة", "specialty"],
+        "current_job": ["المهنة الحالية", "المهنة", "الوظيفة الحالية", "الوظيفة", "طبيعة العمل", "الواجب", "المهنة الفعلية", "current_job", "job"],
+        "residence": ["مكان السكن", "السكن", "العنوان", "مكان الإقامة", "المنطقة", "residence", "address"],
+        "join_date": ["تاريخ الالتحاق بالمفرزة", "تاريخ الالتحاق", "تاريخ التعيين", "تاريخ النقل", "تاريخ الانفكاك", "التاريخ", "join_date"],
+        "phone_number": ["رقم الهاتف", "الهاتف", "رقم الموبايل", "الموبايل", "رقم الجوال", "خلوي", "phone_number", "phone"],
+        "evaluation_and_notes": ["الملاحظات والتقييم الفني", "الملاحظات", "ملاحظات", "التقييم", "البيان", "evaluation_and_notes", "notes"]
     }
-
-    # تحديد الأعمدة الموجودة في الملف ومطابقتها
-    normalized_cols = {str(col).strip(): col for col in df.columns}
+    
+    normalized_cols = {str(col).strip(): col for col in df_columns}
     col_map = {}
+    
+    # 1. المرحلة الأولى: البحث عن التطابق التام (Exact Match)
     for target_key, aliases in column_mapping_aliases.items():
-        found = False
         for alias in aliases:
-            for actual_col in normalized_cols.keys():
-                if alias == actual_col or alias in actual_col:
-                    col_map[target_key] = normalized_cols[actual_col]
-                    found = True
+            for actual_clean, actual_orig in normalized_cols.items():
+                if alias.lower() == actual_clean.lower():
+                    col_map[target_key] = actual_orig
                     break
-            if found:
+            if target_key in col_map:
                 break
+                
+    # 2. المرحلة الثانية: البحث عن التطابق الجزئي للحقول غير المكتشفة
+    for target_key, aliases in column_mapping_aliases.items():
+        if target_key in col_map:
+            continue
+        for alias in aliases:
+            for actual_clean, actual_orig in normalized_cols.items():
+                if alias.lower() in actual_clean.lower() and actual_orig not in col_map.values():
+                    col_map[target_key] = actual_orig
+                    break
+            if target_key in col_map:
+                break
+                
+    return col_map
 
-    if "military_id" not in col_map or "full_name" not in col_map:
+def import_technicians_from_df(df, detachment_id, update_existing=True, custom_col_map=None):
+    """
+    استيراد مرتبات وفنيين من DataFrame إلى مفرزة محددة مع مطابقة مخصصة وذكية للأعمدة
+    """
+    col_map = custom_col_map if custom_col_map else detect_column_mapping(df.columns)
+
+    if not col_map.get("military_id") or not col_map.get("full_name"):
         return {
             "success": False,
             "total": 0,
             "inserted": 0,
             "updated": 0,
             "skipped": 0,
-            "errors": ["الملف لا يحتوي على عمود (الرقم العسكري) أو (الاسم الرباعي). يرجى التأكد من رؤوس الأعمدة."]
+            "errors": ["الملف لا يحتوي على عمود محدد لـ (الرقم العسكري) أو (الاسم الرباعي). يرجى التحقق من مطابقة الأعمدة."]
         }
 
     conn = get_db_connection()
@@ -821,7 +840,7 @@ def import_technicians_from_df(df, detachment_id, update_existing=True):
     errors = []
 
     for index, row in df.iterrows():
-        row_num = index + 2  # رقم الصف في الإكسل (مع احتساب رأس الجدول)
+        row_num = index + 2  # رقم الصف في الإكسل
         
         mil_id = clean_excel_value(row.get(col_map.get("military_id", "")))
         if not mil_id:
@@ -835,37 +854,57 @@ def import_technicians_from_df(df, detachment_id, update_existing=True):
             errors.append(f"الصف {row_num} (الرقم {mil_id}): تم تخطيه لعدم وجود اسم.")
             continue
 
-        rank = clean_excel_value(row.get(col_map.get("rank", ""))) or "جندي أول"
-        category = clean_excel_value(row.get(col_map.get("primary_category", ""))) or "سلاح الصيانة الملكي"
-        specialty = clean_excel_value(row.get(col_map.get("specialty", ""))) or "تكييف وتبريد"
-        job = clean_excel_value(row.get(col_map.get("current_job", "")))
-        residence = clean_excel_value(row.get(col_map.get("residence", "")))
-        join_d = clean_excel_date(row.get(col_map.get("join_date", "")))
-        phone = clean_excel_value(row.get(col_map.get("phone_number", "")))
-        notes = clean_excel_value(row.get(col_map.get("evaluation_and_notes", "")))
+        rank = clean_excel_value(row.get(col_map.get("rank", ""))) if col_map.get("rank") else ""
+        category = clean_excel_value(row.get(col_map.get("primary_category", ""))) if col_map.get("primary_category") else ""
+        specialty = clean_excel_value(row.get(col_map.get("specialty", ""))) if col_map.get("specialty") else ""
+        job = clean_excel_value(row.get(col_map.get("current_job", ""))) if col_map.get("current_job") else ""
+        residence = clean_excel_value(row.get(col_map.get("residence", ""))) if col_map.get("residence") else ""
+        join_d = clean_excel_date(row.get(col_map.get("join_date", ""))) if col_map.get("join_date") else date.today().isoformat()
+        phone = clean_excel_value(row.get(col_map.get("phone_number", ""))) if col_map.get("phone_number") else ""
+        notes = clean_excel_value(row.get(col_map.get("evaluation_and_notes", ""))) if col_map.get("evaluation_and_notes") else ""
+
+        # التبادل الذكي بين التخصص والمهنة إذا كان أحدهما فقط متوفراً في الملف
+        if not specialty and job:
+            specialty = job
+        elif not job and specialty:
+            job = specialty
 
         # التحقق هل الفني موجود مسبقاً
-        cursor.execute("SELECT military_id FROM technicians WHERE military_id = ?;", (mil_id,))
+        cursor.execute("SELECT * FROM technicians WHERE military_id = ?;", (mil_id,))
         existing = cursor.fetchone()
 
         try:
             if existing:
                 if update_existing:
+                    final_rank = rank or existing["rank"]
+                    final_name = name or existing["full_name"]
+                    final_spec = specialty or existing["specialty"]
+                    final_cat = category or existing["primary_category"]
+                    final_job = job or existing["current_job"]
+                    final_res = residence or existing["residence"]
+                    final_join = join_d or existing["join_date"]
+                    final_phone = phone or existing["phone_number"]
+                    final_notes = notes or existing["evaluation_and_notes"]
+
                     cursor.execute("""
                     UPDATE technicians
                     SET rank = ?, full_name = ?, specialty = ?, primary_category = ?, current_job = ?, 
                         residence = ?, current_detachment_id = ?, join_date = ?, phone_number = ?, evaluation_and_notes = ?
                     WHERE military_id = ?;
-                    """, (rank, name, specialty, category, job, residence, detachment_id, join_d, phone, notes, mil_id))
+                    """, (final_rank, final_name, final_spec, final_cat, final_job, final_res, detachment_id, final_join, final_phone, final_notes, mil_id))
                     updated_count += 1
                 else:
                     skipped_count += 1
-                    errors.append(f"الصف {row_num} (الرقم {mil_id}): مسجل مسبقاً وتم تخطيه بناءً على الخيارات.")
+                    errors.append(f"الصف {row_num} (الرقم {mil_id}): مسجل مسبقاً وتم تخطيه بناءً على خيار عدم التحديث.")
             else:
+                final_rank = rank or "جندي أول"
+                final_spec = specialty or "صيانة عامة"
+                final_cat = category or "سلاح الصيانة الملكي"
+
                 cursor.execute("""
                 INSERT INTO technicians (military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-                """, (mil_id, rank, name, specialty, category, job, residence, detachment_id, join_d, phone, notes))
+                """, (mil_id, final_rank, name, final_spec, final_cat, job, residence, detachment_id, join_d, phone, notes))
                 inserted_count += 1
         except Exception as e:
             skipped_count += 1
