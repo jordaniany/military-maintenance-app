@@ -458,45 +458,64 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
     # تبويب 1: كشف الفنيين العام والبحث المتقدم
     # --------------------------------------------------------------------------
     with tab1:
-        st.markdown("#### 🔍 البحث والفلترة السريعة في مرتبات الفنيين")
-        f_col1, f_col2, f_col3, f_col4 = st.columns([2, 1, 1, 1])
-        with f_col1:
-            search_query = st.text_input("بحث بالاسم أو الرقم العسكري أو مكان السكن:", placeholder="اكتب للبحث...")
-        with f_col2:
-            specialty_filter = st.selectbox("تصفية حسب التخصص:", options=["الكل"] + SPECIALTIES)
-        with f_col3:
-            hosp_options = ["الكل"] + [d['hospital_name'] for d in detachments]
-            hospital_filter = st.selectbox("تصفية حسب المستشفى:", options=hosp_options)
-        with f_col4:
-            cat_options = ["الكل"] + PRIMARY_CATEGORIES
-            category_filter = st.selectbox("تصفية حسب الصنف:", options=cat_options)
+        st.markdown("#### 🔍 البحث والفلترة المتقدمة في مرتبات الفنيين")
 
-        # جلب البيانات وتطبيق الفلاتر
+        # جلب البيانات الشاملة أولاً
         all_tech_df = db.get_all_technicians_df(apply_custom_columns=True)
 
+        # استخراج قائمة المهن الحالية المسجلة في النظام
+        existing_jobs = []
+        if not all_tech_df.empty and "المهنة الحالية" in all_tech_df.columns:
+            existing_jobs = sorted(list(set([str(j).strip() for j in all_tech_df["المهنة الحالية"].dropna() if str(j).strip() and str(j).strip() != "-"])))
+
+        # نموذج الفلترة والبحث مع زر التطبيق
+        with st.form(key="technicians_filter_form"):
+            r1_col1, r1_col2, r1_col3 = st.columns([2, 1, 1])
+            with r1_col1:
+                search_query = st.text_input("🔎 بحث عام (بالاسم الرباعي، الرقم العسكري، أو السكن):", placeholder="اكتب للبحث...")
+            with r1_col2:
+                hosp_options = ["الكل"] + [d['hospital_name'] for d in detachments]
+                hospital_filter = st.selectbox("🏥 تصفية حسب المستشفى / المفرزة:", options=hosp_options)
+            with r1_col3:
+                specialty_filter = st.selectbox("🔧 تصفية حسب التخصص الفني:", options=["الكل"] + SPECIALTIES)
+
+            r2_col1, r2_col2, r2_col3 = st.columns([1, 1, 1])
+            with r2_col1:
+                cat_options = ["الكل"] + PRIMARY_CATEGORIES
+                category_filter = st.selectbox("🛡️ تصفية حسب الصنف الأساسي:", options=cat_options)
+            with r2_col2:
+                job_options = ["الكل"] + existing_jobs
+                job_filter = st.selectbox("💼 تصفية حسب المهنة الحالية:", options=job_options)
+            with r2_col3:
+                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                apply_filters = st.form_submit_button("🔍 تطبيق الفلاتر والبحث", type="primary", use_container_width=True)
+
+        # تطبيق الفلاتر على البيانات
         filtered_df = all_tech_df.copy()
 
         if search_query:
             filtered_df = filtered_df[
                 filtered_df["الاسم الرباعي"].astype(str).str.contains(search_query, case=False, na=False) |
                 filtered_df["الرقم العسكري"].astype(str).str.contains(search_query, case=False, na=False) |
-                filtered_df["مكان السكن"].astype(str).str.contains(search_query, case=False, na=False) |
-                filtered_df["المهنة الحالية"].astype(str).str.contains(search_query, case=False, na=False)
+                filtered_df["مكان السكن"].astype(str).str.contains(search_query, case=False, na=False)
             ]
-
-        if specialty_filter != "الكل" and "التخصص الفني" in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df["التخصص الفني"] == specialty_filter]
 
         if hospital_filter != "الكل" and "المستشفى الحالي" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["المستشفى الحالي"] == hospital_filter]
 
+        if specialty_filter != "الكل" and "التخصص الفني" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["التخصص الفني"] == specialty_filter]
+
         if category_filter != "الكل" and "الصنف الأساسي" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["الصنف الأساسي"] == category_filter]
+
+        if job_filter != "الكل" and "المهنة الحالية" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["المهنة الحالية"] == job_filter]
 
         # إحصائية نتائج البحث
         st.caption(f"📊 عدد الفنيين المطابقين للبحث: **{len(filtered_df)}** من إجمالي **{len(all_tech_df)}**")
 
-        # إخفاء عمود detachment_id التقني في العرض
+        # إخفاء عمود detachment_id التقني في العرض وعرض الجدول الأصيل RTL
         display_df = filtered_df.drop(columns=["detachment_id"], errors="ignore")
         st.markdown(styles.render_rtl_table(display_df), unsafe_allow_html=True)
 
