@@ -161,7 +161,7 @@ if menu_choice == "📊 لوحة المؤشرات العامة":
                 <div class="shortage-hospital">🏥 {shortage['hospital_name']} ({shortage['governorate']})</div>
                 <div class="shortage-text">📋 <b>الاحتياجات والنواقص:</b> {shortage['staffing_shortages']}</div>
                 <div class="shortage-meta">
-                    <span>👤 <b>مسؤول المفرزة:</b> {shortage['supervisor_rank']} / {shortage['supervisor_name']}</span>
+                    <span>👤 <b>قائد المفرزة:</b> {shortage['supervisor_rank']} / {shortage['supervisor_name']}</span>
                     <span>📞 <b>هاتف التواصل:</b> {shortage['contact_phone'] or 'غير مسجل'}</span>
                 </div>
             </div>
@@ -261,7 +261,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                 <div class="detachment-info-title">🏥 {selected_detachment['hospital_name']}</div>
                 <div>
                     <span class="detachment-pill">📍 المحافظة: <b>{selected_detachment['governorate']}</b></span>
-                    <span class="detachment-pill">👤 مسؤول المفرزة: <b>{selected_detachment['supervisor_rank']} / {selected_detachment['supervisor_name']}</b></span>
+                    <span class="detachment-pill">👤 قائد المفرزة: <b>{selected_detachment['supervisor_rank']} / {selected_detachment['supervisor_name']}</b></span>
                     <span class="detachment-pill">📞 رقم التواصل: <b>{selected_detachment['contact_phone'] or 'غير محدد'}</b></span>
                 </div>
                 {f'<div style="margin-top: 12px; color: #94A3B8; font-size: 13px;">📝 <b>ملاحظات المفرزة:</b> {selected_detachment["notes"]}</div>' if selected_detachment["notes"] else ''}
@@ -272,7 +272,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
             st.markdown("#### 📝 النواقص والاحتياجات البشرية للمفرزة")
             with st.container():
                 shortages_input = st.text_area(
-                    "بيان النواقص والاحتياجات الواردة من مسؤول المفرزة (تحديث فوري):",
+                    "بيان النواقص والاحتياجات الواردة من قائد المفرزة (تحديث فوري):",
                     value=selected_detachment['staffing_shortages'] or '',
                     placeholder="مثال: بحاجة إلى عدد (1) فني تكييف للوردية المسائية، ونقص فني كهرباء قوى...",
                     key=f"shortages_{selected_id}",
@@ -821,8 +821,8 @@ elif menu_choice == "⚙️ الإعدادات وتخصيص المنظومة":
                         h_gov = st.selectbox("المحافظة *:", options=GOVERNORATES, index=GOVERNORATES.index(target_det['governorate']) if target_det['governorate'] in GOVERNORATES else 0)
                         h_phone = st.text_input("هاتف التواصل / المفرزة:", value=target_det['contact_phone'] or '')
                     with c2:
-                        h_rank = st.selectbox("رتبة مسؤول المفرزة *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(target_det['supervisor_rank']) if target_det['supervisor_rank'] in MILITARY_RANKS else 0)
-                        h_supervisor = st.text_input("اسم مسؤول المفرزة *:", value=target_det['supervisor_name'])
+                        h_rank = st.selectbox("رتبة قائد المفرزة *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(target_det['supervisor_rank']) if target_det['supervisor_rank'] in MILITARY_RANKS else 0)
+                        h_supervisor = st.text_input("اسم قائد المفرزة *:", value=target_det['supervisor_name'])
                         h_notes = st.text_input("ملاحظات المفرزة العامة:", value=target_det['notes'] or '')
 
                     save_hosp_btn = st.form_submit_button("💾 حفظ تعديلات المستشفى", type="primary", use_container_width=True)
@@ -849,8 +849,8 @@ elif menu_choice == "⚙️ الإعدادات وتخصيص المنظومة":
                 new_h_gov = st.selectbox("المحافظة *:", options=GOVERNORATES, key="new_gov_set")
                 new_h_phone = st.text_input("هاتف التواصل:", key="new_ph_set")
             with a2:
-                new_h_rank = st.selectbox("رتبة مسؤول المفرزة *:", options=MILITARY_RANKS, key="new_rank_set")
-                new_h_sup = st.text_input("اسم مسؤول المفرزة *:", key="new_sup_set")
+                new_h_rank = st.selectbox("رتبة قائد المفرزة *:", options=MILITARY_RANKS, key="new_rank_set")
+                new_h_sup = st.text_input("اسم قائد المفرزة *:", key="new_sup_set")
                 new_h_short = st.text_area("النواقص والاحتياجات الأولية:", key="new_sh_set")
                 new_h_note = st.text_input("ملاحظات:", key="new_nt_set")
 
