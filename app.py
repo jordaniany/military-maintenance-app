@@ -460,8 +460,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
     with tab1:
         st.markdown("#### 🔍 البحث والفلترة المتقدمة في مرتبات الفنيين")
 
-        # جلب البيانات الشاملة أولاً
-        all_tech_df = db.get_all_technicians_df(apply_custom_columns=True)
+        # جلب البيانات الشاملة مع كافة الحقول
+        all_tech_df = db.get_all_technicians_df(apply_custom_columns=False)
 
         # استخراج قائمة المهن الحالية المسجلة في النظام
         existing_jobs = []
@@ -517,25 +517,102 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
         display_df = filtered_df[display_columns]
         st.markdown(styles.render_rtl_table(display_df), unsafe_allow_html=True)
 
-        # البطاقة التعريفية الشاملة للفني عند اختيار أو الضغط على اسمه
+        # إدارة وعرض البطاقة التعريفية الشاملة وتعديل بيانات الفني
         st.markdown("---")
-        st.markdown("#### 🪪 البطاقة التعريفية الشاملة للفني")
-        st.caption("اضغط أو اختر أي فني من القائمة لعرض بطاقته التعريفية العسكرية وكافة بياناته:")
+        st.markdown("#### 🪪 البطاقة التعريفية وتعديل بيانات الفني")
+        st.caption("اختر أي فني من الجدول أعلاه لعرض بطاقته العسكرية وتعديل بياناته:")
 
         if not filtered_df.empty:
-            tech_card_options = {"(اختر فني لعرض بطاقته العسكرية بالكامل...)": None}
+            tech_options = {"(اختر اسماً لعرض بطاقته وتعديل بياناته...)": None}
             for _, row_item in filtered_df.iterrows():
-                opt_key = f"🎖️ {row_item.get('الرتبة', '')} / {row_item.get('الاسم الرباعي', '')} (رقم عسكري: {row_item.get('الرقم العسكري', '')}) - {row_item.get('المستشفى الحالي', '')}"
-                tech_card_options[opt_key] = row_item.to_dict()
+                mil = str(row_item.get("الرقم العسكري", ""))
+                rnk = str(row_item.get("الرتبة", ""))
+                nam = str(row_item.get("الاسم الرباعي", ""))
+                hsp = str(row_item.get("المستشفى الحالي", ""))
+                opt_label = f"🎖️ {rnk} / {nam} (رقم عسكري: {mil}) - {hsp}"
+                tech_options[opt_label] = row_item.to_dict()
 
-            selected_card_person = st.selectbox(
-                "اختر الفني لعرض بطاقته:",
-                options=list(tech_card_options.keys()),
+            # أزرار سريعة للضغط على الأسماء مباشرة
+            st.write("**🔹 أزرار سريعة للاختيار المباشر من الجدول أعلاه:**")
+            num_cols = min(len(filtered_df), 4) if len(filtered_df) > 0 else 1
+            btn_cols = st.columns(num_cols)
+            for i, (_, row_item) in enumerate(filtered_df.head(12).iterrows()):
+                c_idx = i % num_cols
+                with btn_cols[c_idx]:
+                    b_label = f"👤 {row_item['الرتبة']} / {row_item['الاسم الرباعي']}"
+                    if st.button(b_label, key=f"quick_tech_card_{row_item['الرقم العسكري']}", use_container_width=True):
+                        st.session_state["selected_card_mil_id"] = str(row_item["الرقم العسكري"])
+
+            opt_keys = list(tech_options.keys())
+            default_index = 0
+            if "selected_card_mil_id" in st.session_state and st.session_state["selected_card_mil_id"]:
+                for k, v in tech_options.items():
+                    if v and str(v.get("الرقم العسكري")) == str(st.session_state["selected_card_mil_id"]):
+                        default_index = opt_keys.index(k)
+                        break
+
+            selected_key = st.selectbox(
+                "اختيار الفني:",
+                options=opt_keys,
+                index=default_index,
+                key="tech_card_selector",
                 label_visibility="collapsed"
             )
 
-            if selected_card_person and tech_card_options[selected_card_person] is not None:
-                st.markdown(styles.render_technician_card(tech_card_options[selected_card_person]), unsafe_allow_html=True)
+            selected_tech = tech_options.get(selected_key)
+            if selected_tech:
+                # عرض البطاقة العسكرية الشاملة
+                st.markdown(styles.render_technician_card(selected_tech), unsafe_allow_html=True)
+
+                # نموذج تعديل بيانات الفني المباشر
+                with st.expander(f"✏️ تعديل بيانات الفني ({selected_tech['الرتبة']} / {selected_tech['الاسم الرباعي']})", expanded=True):
+                    with st.form(key=f"edit_tech_form_{selected_tech['الرقم العسكري']}"):
+                        c_e1, c_e2 = st.columns(2)
+                        with c_e1:
+                            edit_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(selected_tech['الرتبة']) if selected_tech['الرتبة'] in MILITARY_RANKS else 0)
+                            edit_name = st.text_input("الاسم الرباعي *:", value=selected_tech['الاسم الرباعي'])
+                            st.text_input("الرقم العسكري (ثابت):", value=selected_tech['الرقم العسكري'], disabled=True)
+                            edit_cat = st.selectbox("الصنف الأساسي *:", options=PRIMARY_CATEGORIES, index=PRIMARY_CATEGORIES.index(selected_tech['الصنف الأساسي']) if selected_tech['الصنف الأساسي'] in PRIMARY_CATEGORIES else 0)
+                            edit_spec = st.selectbox("التخصص الفني *:", options=SPECIALTIES, index=SPECIALTIES.index(selected_tech['التخصص الفني']) if selected_tech['التخصص الفني'] in SPECIALTIES else 0)
+                        with c_e2:
+                            edit_job = st.text_input("المهنة الحالية بالمفرزة:", value=selected_tech.get('المهنة الحالية', '') or '')
+                            det_dict = {d['hospital_name']: d['id'] for d in detachments}
+                            cur_h = selected_tech.get('المستشفى الحالي', '')
+                            cur_h_idx = list(det_dict.keys()).index(cur_h) if cur_h in det_dict else 0
+                            edit_hosp = st.selectbox("المستشفى / المفرزة الحالية:", options=list(det_dict.keys()), index=cur_h_idx)
+                            edit_res = st.text_input("مكان السكن:", value=selected_tech.get('مكان السكن', '') or '')
+                            try:
+                                cur_j_d = datetime.strptime(str(selected_tech.get('تاريخ الالتحاق بالمفرزة', '')), "%Y-%m-%d").date()
+                            except Exception:
+                                cur_j_d = date.today()
+                            edit_join = st.date_input("تاريخ الالتحاق بالمفرزة:", value=cur_j_d)
+                            edit_phone = st.text_input("رقم الهاتف:", value=selected_tech.get('رقم الهاتف', '') or '')
+
+                        edit_notes = st.text_area("الملاحظات والتقييم الفني:", value=selected_tech.get('الملاحظات والتقييم الفني', '') or '')
+
+                        btn_s, _ = st.columns([1, 2])
+                        with btn_s:
+                            save_btn = st.form_submit_button("💾 حفظ تعديلات الفني", type="primary", use_container_width=True)
+                            if save_btn:
+                                t_det_id = det_dict[edit_hosp]
+                                suc, err_msg = db.update_technician(
+                                    selected_tech['الرقم العسكري'],
+                                    edit_rank,
+                                    edit_name.strip(),
+                                    edit_spec,
+                                    edit_cat,
+                                    edit_job.strip(),
+                                    edit_res.strip(),
+                                    t_det_id,
+                                    edit_join.isoformat(),
+                                    edit_phone.strip(),
+                                    edit_notes.strip()
+                                )
+                                if suc:
+                                    st.toast("✅ تم حفظ وتحديث بيانات الفني بنجاح!", icon="💾")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ تعذر الحفظ: {err_msg}")
 
         # زر تصدير النتائج إلى Excel
         if not display_df.empty:
