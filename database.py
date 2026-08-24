@@ -714,3 +714,171 @@ def get_dashboard_stats():
         "hospital_distribution": hospital_distribution,
         "shortages_list": shortages_list
     }
+
+def clean_excel_value(val):
+    """تنظيف القيم المستخرجة من الإكسل ومعالجة الأرقام والكسور"""
+    if pd.isna(val) or val is None:
+        return ""
+    val_str = str(val).strip()
+    if val_str.endswith(".0"):
+        val_str = val_str[:-2]
+    return val_str
+
+def clean_excel_date(val):
+    """تنظيف وتحويل التواريخ من الإكسل إلى صيغة YYYY-MM-DD"""
+    if pd.isna(val) or val is None or str(val).strip() == "":
+        return date.today().isoformat()
+    if isinstance(val, (datetime, pd.Timestamp)):
+        return val.strftime("%Y-%m-%d")
+    try:
+        parsed = pd.to_datetime(val)
+        return parsed.strftime("%Y-%m-%d")
+    except Exception:
+        return date.today().isoformat()
+
+def generate_technicians_template():
+    """إنشاء قالب Excel قياسي لتعبئة واستيراد مرتبات الفنيين"""
+    import io
+    sample_data = [
+        {
+            "الرقم العسكري": "100200",
+            "الرتبة": "رقيب",
+            "الاسم الرباعي": "محمد أحمد إبراهيم خليل",
+            "الصنف الأساسي": "سلاح الصيانة الملكي",
+            "التخصص الفني": "تكييف وتبريد",
+            "المهنة الحالية": "مسؤول صيانة التكييف المركزي",
+            "مكان السكن": "عمان - طبربور",
+            "تاريخ الالتحاق بالمفرزة": "2023-05-10",
+            "رقم الهاتف": "0791234567",
+            "الملاحظات والتقييم الفني": "فني متميز، جاهزية عالية"
+        },
+        {
+            "الرقم العسكري": "300400",
+            "الرتبة": "عريف",
+            "الاسم الرباعي": "خالد محمود عبد الله يوسف",
+            "الصنف الأساسي": "سلاح الصيانة الملكي",
+            "التخصص الفني": "كهرباء قوى ومحولات",
+            "المهنة الحالية": "فني محولات ولوحات توزيع",
+            "مكان السكن": "الزرقاء - حي معصوم",
+            "تاريخ الالتحاق بالمفرزة": "2024-01-15",
+            "رقم الهاتف": "0789876543",
+            "الملاحظات والتقييم الفني": "مناوب لوردية الطوارئ"
+        }
+    ]
+    df_template = pd.DataFrame(sample_data)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df_template.to_excel(writer, index=False, sheet_name="قالب_الفنيين")
+    return output.getvalue()
+
+def import_technicians_from_df(df, detachment_id, update_existing=True):
+    """
+    استيراد مرتبات وفنيين من DataFrame إلى مفرزة محددة مع مطابقة ذكية للأعمدة
+    """
+    column_mapping_aliases = {
+        "military_id": ["الرقم العسكري", "رقم عسكري", "الرقم", "military_id", "id"],
+        "rank": ["الرتبة", "رتبة", "rank"],
+        "full_name": ["الاسم الرباعي", "الاسم", "اسم الفني", "الاسم الكامل", "full_name", "name"],
+        "primary_category": ["الصنف الأساسي", "الصنف", "السلاح", "primary_category", "category"],
+        "specialty": ["التخصص الفني", "التخصص", "specialty"],
+        "current_job": ["المهنة الحالية", "المهنة", "الوظيفة الحالية", "الوظيفة", "current_job", "job"],
+        "residence": ["مكان السكن", "السكن", "العنوان", "residence", "address"],
+        "join_date": ["تاريخ الالتحاق بالمفرزة", "تاريخ الالتحاق", "تاريخ التعيين", "join_date"],
+        "phone_number": ["رقم الهاتف", "الهاتف", "رقم الموبايل", "الموبايل", "phone_number", "phone"],
+        "evaluation_and_notes": ["الملاحظات والتقييم الفني", "الملاحظات", "ملاحظات", "التقييم", "evaluation_and_notes", "notes"]
+    }
+
+    # تحديد الأعمدة الموجودة في الملف ومطابقتها
+    normalized_cols = {str(col).strip(): col for col in df.columns}
+    col_map = {}
+    for target_key, aliases in column_mapping_aliases.items():
+        found = False
+        for alias in aliases:
+            for actual_col in normalized_cols.keys():
+                if alias == actual_col or alias in actual_col:
+                    col_map[target_key] = normalized_cols[actual_col]
+                    found = True
+                    break
+            if found:
+                break
+
+    if "military_id" not in col_map or "full_name" not in col_map:
+        return {
+            "success": False,
+            "total": 0,
+            "inserted": 0,
+            "updated": 0,
+            "skipped": 0,
+            "errors": ["الملف لا يحتوي على عمود (الرقم العسكري) أو (الاسم الرباعي). يرجى التأكد من رؤوس الأعمدة."]
+        }
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    inserted_count = 0
+    updated_count = 0
+    skipped_count = 0
+    errors = []
+
+    for index, row in df.iterrows():
+        row_num = index + 2  # رقم الصف في الإكسل (مع احتساب رأس الجدول)
+        
+        mil_id = clean_excel_value(row.get(col_map.get("military_id", "")))
+        if not mil_id:
+            skipped_count += 1
+            errors.append(f"الصف {row_num}: تم تخطيه لعدم وجود رقم عسكري.")
+            continue
+
+        name = clean_excel_value(row.get(col_map.get("full_name", "")))
+        if not name:
+            skipped_count += 1
+            errors.append(f"الصف {row_num} (الرقم {mil_id}): تم تخطيه لعدم وجود اسم.")
+            continue
+
+        rank = clean_excel_value(row.get(col_map.get("rank", ""))) or "جندي أول"
+        category = clean_excel_value(row.get(col_map.get("primary_category", ""))) or "سلاح الصيانة الملكي"
+        specialty = clean_excel_value(row.get(col_map.get("specialty", ""))) or "تكييف وتبريد"
+        job = clean_excel_value(row.get(col_map.get("current_job", "")))
+        residence = clean_excel_value(row.get(col_map.get("residence", "")))
+        join_d = clean_excel_date(row.get(col_map.get("join_date", "")))
+        phone = clean_excel_value(row.get(col_map.get("phone_number", "")))
+        notes = clean_excel_value(row.get(col_map.get("evaluation_and_notes", "")))
+
+        # التحقق هل الفني موجود مسبقاً
+        cursor.execute("SELECT military_id FROM technicians WHERE military_id = ?;", (mil_id,))
+        existing = cursor.fetchone()
+
+        try:
+            if existing:
+                if update_existing:
+                    cursor.execute("""
+                    UPDATE technicians
+                    SET rank = ?, full_name = ?, specialty = ?, primary_category = ?, current_job = ?, 
+                        residence = ?, current_detachment_id = ?, join_date = ?, phone_number = ?, evaluation_and_notes = ?
+                    WHERE military_id = ?;
+                    """, (rank, name, specialty, category, job, residence, detachment_id, join_d, phone, notes, mil_id))
+                    updated_count += 1
+                else:
+                    skipped_count += 1
+                    errors.append(f"الصف {row_num} (الرقم {mil_id}): مسجل مسبقاً وتم تخطيه بناءً على الخيارات.")
+            else:
+                cursor.execute("""
+                INSERT INTO technicians (military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """, (mil_id, rank, name, specialty, category, job, residence, detachment_id, join_d, phone, notes))
+                inserted_count += 1
+        except Exception as e:
+            skipped_count += 1
+            errors.append(f"الصف {row_num} (الرقم {mil_id}): خطأ أثناء الحفظ ({str(e)})")
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "total": len(df),
+        "inserted": inserted_count,
+        "updated": updated_count,
+        "skipped": skipped_count,
+        "errors": errors
+    }

@@ -293,21 +293,87 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
 
             if not tech_df.empty:
                 st.dataframe(tech_df, use_container_width=True, hide_index=True)
-
-                # زر تصدير كشف المفرزة بصيغة Excel
-                excel_data = export_to_excel(tech_df, sheet_name=f"كشف {selected_detachment['governorate']}")
-                file_name = f"كشف_مرتبات_{selected_detachment['hospital_name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-
-                export_btn_label = settings.get("btn_export_label", "📥 تصدير الكشف إلى Excel")
-                st.download_button(
-                    label=export_btn_label,
-                    data=excel_data,
-                    file_name=file_name,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"dl_det_{selected_id}"
-                )
             else:
-                st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك إضافة أو نقل فنيين إليها من شاشة إدارة المرتبات.")
+                st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك استيراد كشف الفنيين من ملف Excel أدناه أو إضافة فنيين من شاشة إدارة المرتبات.")
+
+            # أزرار الإجراءات (تصدير واستيراد)
+            exp_col1, exp_col2 = st.columns([1, 1])
+            with exp_col1:
+                if not tech_df.empty:
+                    # زر تصدير كشف المفرزة بصيغة Excel
+                    excel_data = export_to_excel(tech_df, sheet_name=f"كشف {selected_detachment['governorate']}")
+                    file_name = f"كشف_مرتبات_{selected_detachment['hospital_name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                    export_btn_label = settings.get("btn_export_label", "📥 تصدير الكشف إلى Excel")
+                    st.download_button(
+                        label=export_btn_label,
+                        data=excel_data,
+                        file_name=file_name,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"dl_det_{selected_id}",
+                        use_container_width=True
+                    )
+            with exp_col2:
+                template_bytes = db.generate_technicians_template()
+                st.download_button(
+                    label="📄 تحميل قالب Excel قياسي للاستيراد",
+                    data=template_bytes,
+                    file_name="قالب_استيراد_فنيي_المفرزة.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"dl_tpl_{selected_id}",
+                    use_container_width=True
+                )
+
+            # 2.4 قسم استيراد كشف المرتبات من ملف Excel
+            with st.expander(f"📤 استيراد كشف فنيين من ملف Excel لمفرزة ({selected_detachment['hospital_name']})", expanded=False):
+                st.markdown("""
+                <div style="font-size: 13px; color: #94A3B8; margin-bottom: 12px;">
+                    💡 يمكنك رفع ملف إكسل يحتوي على كشف مرتبات الفنيين وسيتم إلحاقهم مباشرة بهذه المفرزة.
+                    الأعمدة المدعومة: <b>الرقم العسكري *، الرتبة، الاسم الرباعي *، الصنف الأساسي، التخصص الفني، المهنة الحالية، مكان السكن، تاريخ الالتحاق بالمفرزة، رقم الهاتف، الملاحظات</b>.
+                </div>
+                """, unsafe_allow_html=True)
+
+                up_file = st.file_uploader(
+                    "اختر ملف Excel (.xlsx أو .xls):",
+                    type=["xlsx", "xls"],
+                    key=f"uploader_det_{selected_id}"
+                )
+
+                update_existing_techs = st.checkbox(
+                    "تحديث بيانات الفني ونقله لهذه المفرزة إذا كان رقمه العسكري مسجلاً مسبقاً",
+                    value=True,
+                    key=f"chk_upd_{selected_id}"
+                )
+
+                if up_file is not None:
+                    try:
+                        preview_df = pd.read_excel(up_file)
+                        st.markdown(f"##### 👁️ معاينة البيانات المستخرجة من الملف ({len(preview_df)} سجل):")
+                        st.dataframe(preview_df.head(10), use_container_width=True, hide_index=True)
+
+                        if st.button(f"🚀 تأكيد استيراد ({len(preview_df)}) فني إلى المفرزة", type="primary", key=f"btn_do_import_{selected_id}"):
+                            with st.spinner("جاري استيراد وحفظ البيانات في قاعدة البيانات..."):
+                                res = db.import_technicians_from_df(preview_df, selected_id, update_existing=update_existing_techs)
+                                
+                                if res.get("success"):
+                                    st.success(f"""
+                                    🎉 **تمت عملية الاستيراد بنجاح!**
+                                    - إجمالي السجلات بالملف: **{res['total']}**
+                                    - سجلات جديدة أُضيفت: **{res['inserted']}**
+                                    - سجلات حُدثت: **{res['updated']}**
+                                    - سجلات تم تخطيها: **{res['skipped']}**
+                                    """)
+                                    if res.get("errors"):
+                                        with st.expander("⚠️ تفاصيل الملاحظات والتنبيهات أثناء الاستيراد"):
+                                            for err in res["errors"]:
+                                                st.write(f"• {err}")
+                                    st.toast("✅ تم استيراد كشف المفرزة بنجاح!", icon="🛡️")
+                                    st.rerun()
+                                else:
+                                    st.error("❌ فشلت عملية الاستيراد:")
+                                    for err in res.get("errors", []):
+                                        st.write(f"• {err}")
+                    except Exception as ex:
+                        st.error(f"⚠️ تعذر قراءة ملف الإكسل: {str(ex)}")
 
 
 # ==============================================================================
