@@ -457,8 +457,42 @@ def delete_detachment(detachment_id):
         conn.close()
     return success
 
+# جدول أوزان الأقدمية للرتب العسكرية من الأعلى إلى الأدنى
+MILITARY_RANK_SENIORITY = {
+    "لواء": 120,
+    "عميد": 110,
+    "عقيد": 100,
+    "مقدم": 90,
+    "رائد": 80,
+    "نقيب": 70,
+    "ملازم أول": 60,
+    "ملازم 1": 60,
+    "ملازم": 50,
+    "ملازم ثاني": 50,
+    "رئيس رقباء": 45,
+    "وكيل أول": 40,
+    "وكيل 1": 40,
+    "وكيل": 30,
+    "رقيب أول": 20,
+    "رقيب 1": 20,
+    "رقيب": 15,
+    "عريف": 10,
+    "جندي أول": 5,
+    "جندي 1": 5,
+    "جندي": 2,
+    "جندي مكلف": 1,
+    "مكلف": 1
+}
+
+def get_rank_weight(rank_str):
+    """إرجاع وزن الأقدمية العسكرية للرتبة للترتيب الدقيق"""
+    if not rank_str:
+        return -1
+    clean_r = str(rank_str).strip()
+    return MILITARY_RANK_SENIORITY.get(clean_r, 0)
+
 def get_all_technicians_df(apply_custom_columns=True):
-    """إرجاع جدول جميع الفنيين شاملاً الحقول الجديدة وتطبيق الترتيب المخصص للأعمدة"""
+    """إرجاع جدول جميع الفنيين مرتباً افتراضياً حسب الرتبة العسكرية (من الأعلى إلى الأدنى)"""
     conn = get_db_connection()
     query = """
     SELECT 
@@ -476,8 +510,7 @@ def get_all_technicians_df(apply_custom_columns=True):
         t.evaluation_and_notes as "الملاحظات والتقييم الفني",
         t.current_detachment_id as detachment_id
     FROM technicians t
-    LEFT JOIN detachments d ON t.current_detachment_id = d.id
-    ORDER BY t.rank ASC, t.full_name ASC;
+    LEFT JOIN detachments d ON t.current_detachment_id = d.id;
     """
     df = pd.read_sql_query(query, conn)
     conn.close()
@@ -485,6 +518,11 @@ def get_all_technicians_df(apply_custom_columns=True):
     if not df.empty:
         # احتساب مدة الخدمة بالمفرزة
         df["مدة الخدمة بالمفرزة"] = df["تاريخ الالتحاق بالمفرزة"].apply(calculate_duration_arabic)
+
+        # الترتيب الافتراضي العسكري: من أعلى رتبة إلى أدنى رتبة ثم أبجدياً بالاسم
+        df["_rank_weight"] = df["الرتبة"].apply(get_rank_weight)
+        df = df.sort_values(by=["_rank_weight", "الاسم الرباعي"], ascending=[False, True]).reset_index(drop=True)
+        df = df.drop(columns=["_rank_weight"], errors="ignore")
 
         if apply_custom_columns:
             settings = get_app_settings()
