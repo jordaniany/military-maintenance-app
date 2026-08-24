@@ -657,15 +657,15 @@ def get_technician_by_id(military_id):
     conn.close()
     return dict(row) if row else None
 
-def add_technician(military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes):
-    """إضافة فني جديد إلى المنظومة مع الحقول الجديدة"""
+def add_technician(military_id, rank, full_name, specialty, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes, *args):
+    """إضافة فني جديد إلى المنظومة"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
         INSERT INTO technicians (military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-        """, (military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes))
+        VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?);
+        """, (military_id, rank, full_name, specialty, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes))
         conn.commit()
         success = True
         err = None
@@ -679,16 +679,16 @@ def add_technician(military_id, rank, full_name, specialty, primary_category, cu
         conn.close()
     return success, err
 
-def update_technician(military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes):
+def update_technician(military_id, rank, full_name, specialty, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes, *args):
     """تعديل بيانات فني موجود بالكامل"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
         UPDATE technicians 
-        SET rank = ?, full_name = ?, specialty = ?, primary_category = ?, current_job = ?, residence = ?, current_detachment_id = ?, join_date = ?, phone_number = ?, evaluation_and_notes = ?
+        SET rank = ?, full_name = ?, specialty = ?, primary_category = NULL, current_job = ?, residence = ?, current_detachment_id = ?, join_date = ?, phone_number = ?, evaluation_and_notes = ?
         WHERE military_id = ?;
-        """, (rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes, military_id))
+        """, (rank, full_name, specialty, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes, military_id))
         conn.commit()
         success = True
         err = None

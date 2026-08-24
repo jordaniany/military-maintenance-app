@@ -453,6 +453,15 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
         if not all_tech_df.empty and "المهنة الحالية" in all_tech_df.columns:
             existing_jobs = sorted(list(set([str(j).strip() for j in all_tech_df["المهنة الحالية"].dropna() if str(j).strip() and str(j).strip() != "-"])))
 
+        # استخراج قائمة الأصناف والمهن الحالية المسجلة في النظام فعلياً
+        existing_categories = []
+        if not all_tech_df.empty and "الصنف" in all_tech_df.columns:
+            existing_categories = sorted(list(set([str(c).strip() for c in all_tech_df["الصنف"].dropna() if str(c).strip() and str(c).strip() != "-"])))
+
+        existing_jobs = []
+        if not all_tech_df.empty and "المهنة الحالية" in all_tech_df.columns:
+            existing_jobs = sorted(list(set([str(j).strip() for j in all_tech_df["المهنة الحالية"].dropna() if str(j).strip() and str(j).strip() != "-"])))
+
         # نموذج الفلترة والبحث بحسب الترتيب المطلوب
         with st.form(key="technicians_filter_form"):
             # السطر الأول: الاسم / البحث العام + زر تطبيق الفلترة
@@ -469,7 +478,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                 hosp_options = ["الكل"] + [d['hospital_name'] for d in detachments]
                 hospital_filter = st.selectbox("🏥 تصفية حسب المستشفى / المفرزة:", options=hosp_options)
             with r2_col2:
-                category_filter = st.selectbox("🛡️ تصفية حسب الصنف:", options=["الكل"] + MILITARY_CATEGORIES)
+                category_filter = st.selectbox("🛡️ تصفية حسب الصنف:", options=["الكل"] + existing_categories)
             with r2_col3:
                 job_options = ["الكل"] + existing_jobs
                 job_filter = st.selectbox("💼 تصفية حسب المهنة الحالية:", options=job_options)
@@ -558,7 +567,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                             edit_name = st.text_input("الاسم الرباعي *:", value=selected_tech['الاسم الرباعي'])
                             st.text_input("الرقم العسكري (ثابت):", value=selected_tech['الرقم العسكري'], disabled=True)
                             cur_cat_val = selected_tech.get('الصنف') or selected_tech.get('specialty') or ''
-                            edit_cat = st.selectbox("الصنف *:", options=MILITARY_CATEGORIES, index=MILITARY_CATEGORIES.index(cur_cat_val) if cur_cat_val in MILITARY_CATEGORIES else 0)
+                            edit_cat = st.text_input("الصنف (كما في الإكسل) *:", value=str(cur_cat_val))
                         with c_e2:
                             edit_job = st.text_input("المهنة الحالية بالمفرزة:", value=selected_tech.get('المهنة الحالية', '') or '')
                             det_dict = {d['hospital_name']: d['id'] for d in detachments}
@@ -584,8 +593,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                                     selected_tech['الرقم العسكري'],
                                     edit_rank,
                                     edit_name.strip(),
-                                    edit_cat,
-                                    None,
+                                    edit_cat.strip(),
                                     edit_job.strip(),
                                     edit_res.strip(),
                                     t_det_id,
@@ -622,8 +630,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                 tech_mil_id = st.text_input("الرقم العسكري (مفتاح فريد) *:", placeholder="مثال: 987654")
                 tech_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=2)
                 tech_name = st.text_input("الاسم الرباعي *:", placeholder="مثال: أحمد محمد علي حسن")
-                tech_category = st.selectbox("الصنف *:", options=MILITARY_CATEGORIES)
-                tech_job = st.text_input("المهنة الحالية / الوظيفة الفعلية بالمفرزة:", placeholder="مثال: فني تكييف شيلرات وغرف عمليات")
+                tech_category = st.text_input("الصنف *:", placeholder="اكتب الصنف كما في الإكسل (مثال: مهندس مدني / تكييف وتبريد / نجار...)")
+                tech_job = st.text_input("المهنة الحالية / الوظيفة الفعلية بالمفرزة:", placeholder="مثال: قائد مفرزة / فني شيلرات...")
 
             with col_b:
                 det_select_options = {d['hospital_name']: d['id'] for d in detachments}
@@ -637,16 +645,15 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
             submit_add_tech = st.form_submit_button(add_btn_label, type="primary", use_container_width=True)
 
             if submit_add_tech:
-                if not tech_mil_id.strip() or not tech_name.strip():
-                    st.error("❌ يرجى إدخال الرقم العسكري والاسم الرباعي بشكل صحيح.")
+                if not tech_mil_id.strip() or not tech_name.strip() or not tech_category.strip():
+                    st.error("❌ يرجى إدخال الرقم العسكري والاسم الرباعي والصنف بشكل صحيح.")
                 else:
                     det_id = det_select_options[tech_detachment_name]
                     success, err = db.add_technician(
                         tech_mil_id.strip(),
                         tech_rank,
                         tech_name.strip(),
-                        tech_category,
-                        None,
+                        tech_category.strip(),
                         tech_job.strip(),
                         tech_residence.strip(),
                         det_id,
@@ -748,7 +755,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                         e_name = st.text_input("الاسم الرباعي:", value=target_tech['full_name'])
                         
                         cur_cat_val = target_tech.get('specialty') or ''
-                        e_cat = st.selectbox("الصنف:", options=MILITARY_CATEGORIES, index=MILITARY_CATEGORIES.index(cur_cat_val) if cur_cat_val in MILITARY_CATEGORIES else 0)
+                        e_cat = st.text_input("الصنف (كما في الإكسل):", value=str(cur_cat_val))
                         e_job = st.text_input("المهنة الحالية / الوظيفة الفعلية:", value=target_tech.get('current_job', '') or '')
 
                     with ec2:
@@ -775,15 +782,14 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
                         success, err = db.update_technician(
                             edit_mil_id,
                             e_rank,
-                            e_name,
-                            e_cat,
-                            None,
-                            e_job,
-                            e_residence,
+                            e_name.strip(),
+                            e_cat.strip(),
+                            e_job.strip(),
+                            e_residence.strip(),
                             all_dets[e_det_name],
                             str(e_join_date),
-                            e_phone,
-                            e_eval
+                            e_phone.strip(),
+                            e_eval.strip()
                         )
                         if success:
                             st.toast("✅ تم تحديث بيانات الفني بنجاح!", icon="✏️")
