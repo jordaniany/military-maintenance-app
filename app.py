@@ -511,8 +511,8 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
         # إحصائية نتائج البحث
         st.caption(f"📊 عدد الفنيين المطابقين للبحث: **{len(filtered_df)}** من إجمالي **{len(all_tech_df)}**")
 
-        # عرض جدول النتائج بالمعلومات الـ 5 المحددة فقط
-        TARGET_RESULT_COLUMNS = ["الرتبة", "الاسم الرباعي", "الصنف الأساسي", "المهنة الحالية", "مدة الخدمة بالمفرزة"]
+        # عرض جدول النتائج بالمعلومات المحددة
+        TARGET_RESULT_COLUMNS = ["الرتبة", "الاسم الرباعي", "الصنف الأساسي", "المهنة الحالية", "المستشفى الحالي", "مدة الخدمة بالمفرزة"]
         display_columns = [col for col in TARGET_RESULT_COLUMNS if col in filtered_df.columns]
         display_df = filtered_df[display_columns]
         st.markdown(styles.render_rtl_table(display_df), unsafe_allow_html=True)
