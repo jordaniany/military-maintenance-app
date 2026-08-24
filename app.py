@@ -292,7 +292,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
             tech_df = db.get_technicians_by_detachment_df(selected_id, apply_custom_columns=True)
 
             if not tech_df.empty:
-                st.dataframe(tech_df, use_container_width=True, hide_index=True)
+                st.markdown(styles.render_rtl_table(tech_df), unsafe_allow_html=True)
             else:
                 st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك استيراد كشف الفنيين من ملف Excel أدناه أو إضافة فنيين من شاشة إدارة المرتبات.")
 
@@ -348,7 +348,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                     try:
                         preview_df = pd.read_excel(up_file)
                         st.markdown(f"##### 👁️ معاينة البيانات المستخرجة من الملف ({len(preview_df)} سجل):")
-                        st.dataframe(preview_df.head(10), use_container_width=True, hide_index=True)
+                        st.markdown(styles.render_rtl_table(preview_df.head(10)), unsafe_allow_html=True)
 
                         if st.button(f"🚀 تأكيد استيراد ({len(preview_df)}) فني إلى المفرزة", type="primary", key=f"btn_do_import_{selected_id}"):
                             with st.spinner("جاري استيراد وحفظ البيانات في قاعدة البيانات..."):
@@ -439,7 +439,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
 
         # إخفاء عمود detachment_id التقني في العرض
         display_df = filtered_df.drop(columns=["detachment_id"], errors="ignore")
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.markdown(styles.render_rtl_table(display_df), unsafe_allow_html=True)
 
         # زر تصدير النتائج إلى Excel
         if not display_df.empty:
@@ -685,7 +685,7 @@ elif menu_choice == "🔄 سجل حركات النقل":
             ]
 
         st.markdown("#### 📜 جدول حركات النقل الموثقة")
-        st.dataframe(filtered_mov, use_container_width=True, hide_index=True)
+        st.markdown(styles.render_rtl_table(filtered_mov), unsafe_allow_html=True)
 
         excel_mov = export_to_excel(filtered_mov, sheet_name="سجل حركات النقل")
         file_mov_name = f"سجل_حركات_النقل_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
