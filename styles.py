@@ -175,11 +175,17 @@ def apply_custom_styles():
     }
 
     /* تحسين عناصر الإدخال والأزرار */
-    .stTextInput input, .stTextArea textarea, .stSelectbox select {
+    .stTextInput input, .stTextArea textarea, .stSelectbox select, .stSelectbox [data-baseweb="select"], .stMultiSelect {
         direction: rtl !important;
         text-align: right !important;
         font-family: 'Cairo', sans-serif !important;
         border-radius: 8px !important;
+    }
+
+    .stDateInput input {
+        direction: rtl !important;
+        text-align: right !important;
+        font-family: 'Cairo', sans-serif !important;
     }
 
     .stButton button {
@@ -205,12 +211,19 @@ def apply_custom_styles():
         border-color: #CBD5E1 !important;
     }
 
-    /* تحسين الجداول */
-    [data-testid="stDataFrame"] {
+    /* تحسين الجداول والكشوفات لتكون من اليمين إلى اليسار بالكامل */
+    [data-testid="stDataFrame"],
+    [data-testid="stDataFrameResizable"],
+    [data-testid="stDataFrame"] > div,
+    [data-testid="stDataFrame"] iframe,
+    .dvn-scroller,
+    .dvn-scroll-inner,
+    .gdg-style,
+    [data-testid="stTable"],
+    [data-testid="stTable"] table {
         direction: rtl !important;
         text-align: right !important;
         border-radius: 10px !important;
-        overflow: hidden !important;
         border: 1px solid #E2E8F0 !important;
     }
 
@@ -220,7 +233,29 @@ def apply_custom_styles():
         font-family: 'Cairo', sans-serif !important;
     }
 
-    /* علامات التبويب */
+    [data-testid="stDataFrame"] canvas {
+        direction: rtl !important;
+    }
+
+    /* محاذاة نصوص الجداول وخلايا العناوين والصفوف */
+    table, thead, tbody, tr, th, td {
+        direction: rtl !important;
+        text-align: right !important;
+        font-family: 'Cairo', sans-serif !important;
+    }
+
+    th {
+        background-color: #0F172A !important;
+        color: #F8FAFC !important;
+        font-weight: 700 !important;
+        text-align: right !important;
+    }
+
+    td {
+        text-align: right !important;
+    }
+
+    /* علامات التبويب والقوائم المنسدلة */
     .stTabs [data-baseweb="tab-list"] {
         direction: rtl !important;
         gap: 8px;
