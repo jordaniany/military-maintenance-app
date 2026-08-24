@@ -461,6 +461,105 @@ def apply_custom_styles():
         background-color: #FEFCE8 !important;
         font-weight: 600;
     }
+
+    /* بطاقة الهوية والبيانات العسكرية الشاملة للفني */
+    .military-id-card {
+        background: #FFFFFF;
+        border: 2px solid #0F172A;
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        margin: 16px 0 24px 0;
+        overflow: hidden;
+        direction: rtl !important;
+        text-align: right !important;
+        font-family: 'Cairo', sans-serif !important;
+    }
+
+    .id-card-header {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+        color: #F8FAFC;
+        padding: 14px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 3px solid #15803D;
+    }
+
+    .id-card-title {
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+    }
+
+    .id-card-badge {
+        font-size: 12.5px;
+        color: #94A3B8;
+        font-weight: 600;
+    }
+
+    .id-card-body {
+        padding: 18px 20px;
+        background: #F8FAFC;
+    }
+
+    .id-card-hero {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #FFFFFF;
+        padding: 12px 18px;
+        border-radius: 10px;
+        border: 1px solid #E2E8F0;
+        margin-bottom: 14px;
+    }
+
+    .id-card-name {
+        font-size: 19px;
+        font-weight: 800;
+        color: #0F172A;
+    }
+
+    .id-card-mil-badge {
+        background: #E0F2FE;
+        color: #0369A1;
+        font-weight: 800;
+        font-size: 14.5px;
+        padding: 4px 12px;
+        border-radius: 8px;
+        border: 1px solid #BAE6FD;
+        font-family: monospace, sans-serif !important;
+    }
+
+    .id-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .id-grid-item {
+        background: #FFFFFF;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #E2E8F0;
+        font-size: 13.5px;
+        color: #334155;
+    }
+
+    .id-grid-item b {
+        color: #0F172A;
+        margin-left: 4px;
+    }
+
+    .id-card-notes {
+        background: #FFFBEB;
+        border: 1px solid #FDE68A;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13.5px;
+        color: #92400E;
+        margin-top: 10px;
+    }
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
@@ -547,5 +646,58 @@ def render_rtl_table(df, max_height="550px", highlight_commander=False):
                 {"".join(rows_html)}
             </tbody>
         </table>
+    </div>
+    """
+
+def render_technician_card(tech):
+    """توليد كود HTML لبطاقة الفني التعريفية العسكرية الشاملة"""
+    if tech is None:
+        return ""
+    
+    rank = tech.get("الرتبة", "-")
+    name = tech.get("الاسم الرباعي", "-")
+    mil_id = tech.get("الرقم العسكري", "-")
+    category = tech.get("الصنف الأساسي", "-")
+    spec = tech.get("التخصص الفني", "-")
+    job = tech.get("المهنة الحالية", "-")
+    hosp = tech.get("المستشفى الحالي", "-")
+    gov = tech.get("المحافظة", "-")
+    residence = tech.get("مكان السكن", "-")
+    join_date = tech.get("تاريخ الالتحاق بالمفرزة", "-")
+    duration = tech.get("مدة الخدمة بالمفرزة", "-")
+    phone = tech.get("رقم الهاتف", "-")
+    notes = tech.get("الملاحظات والتقييم الفني", "")
+
+    notes_html = f"""
+    <div class="id-card-notes">
+        📝 <b>الملاحظات والتقييم الفني:</b> {notes}
+    </div>
+    """ if notes and str(notes).strip() and str(notes).strip() != "-" else ""
+
+    phone_display = f'<a href="tel:{phone}" style="color: #15803D; font-weight: 700; text-decoration: none;">📞 {phone}</a>' if phone and str(phone).strip() != "-" else "-"
+
+    return f"""
+    <div class="military-id-card">
+        <div class="id-card-header">
+            <div class="id-card-title">🪪 البطاقة التعريفية العسكرية الشاملة</div>
+            <div class="id-card-badge">🛡️ القوات المسلحة الأردنية - الجيش العربي</div>
+        </div>
+        <div class="id-card-body">
+            <div class="id-card-hero">
+                <div class="id-card-name">🎖️ {rank} / {name}</div>
+                <div class="id-card-mil-badge">الرقم العسكري: {mil_id}</div>
+            </div>
+            <div class="id-card-grid">
+                <div class="id-grid-item">🛡️ <b>الصنف الأساسي:</b> {category}</div>
+                <div class="id-grid-item">🔧 <b>التخصص الفني:</b> {spec}</div>
+                <div class="id-grid-item">💼 <b>المهنة الحالية:</b> {job}</div>
+                <div class="id-grid-item">🏥 <b>المستشفى / المفرزة:</b> {hosp} ({gov})</div>
+                <div class="id-grid-item">📍 <b>مكان السكن:</b> {residence}</div>
+                <div class="id-grid-item">📅 <b>تاريخ الالتحاق:</b> {join_date}</div>
+                <div class="id-grid-item">⏳ <b>مدة الخدمة بالمفرزة:</b> <span style="color: #15803D; font-weight: 700;">{duration}</span></div>
+                <div class="id-grid-item">📱 <b>رقم الهاتف:</b> {phone_display}</div>
+            </div>
+            {notes_html}
+        </div>
     </div>
     """

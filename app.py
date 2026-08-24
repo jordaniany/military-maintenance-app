@@ -468,27 +468,26 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
         if not all_tech_df.empty and "المهنة الحالية" in all_tech_df.columns:
             existing_jobs = sorted(list(set([str(j).strip() for j in all_tech_df["المهنة الحالية"].dropna() if str(j).strip() and str(j).strip() != "-"])))
 
-        # نموذج الفلترة والبحث مع زر التطبيق
+        # نموذج الفلترة والبحث بحسب الترتيب المطلوب
         with st.form(key="technicians_filter_form"):
-            r1_col1, r1_col2, r1_col3 = st.columns([2, 1, 1])
+            # السطر الأول: الاسم / البحث العام + زر تطبيق الفلترة
+            r1_col1, r1_col2 = st.columns([3, 1])
             with r1_col1:
-                search_query = st.text_input("🔎 بحث عام (بالاسم الرباعي، الرقم العسكري، أو السكن):", placeholder="اكتب للبحث...")
+                search_query = st.text_input("🔎 الاسم / الرقم العسكري / مكان السكن:", placeholder="اكتب الاسم أو الرقم العسكري أو السكن للبحث...")
             with r1_col2:
+                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                apply_filters = st.form_submit_button("🔍 تطبيق الفلترة والبحث", type="primary", use_container_width=True)
+
+            # السطر الثاني: تصفية حسب المستشفى / المفرزة .. حسب التخصص الفني .. حسب المهنة الحالية
+            r2_col1, r2_col2, r2_col3 = st.columns(3)
+            with r2_col1:
                 hosp_options = ["الكل"] + [d['hospital_name'] for d in detachments]
                 hospital_filter = st.selectbox("🏥 تصفية حسب المستشفى / المفرزة:", options=hosp_options)
-            with r1_col3:
-                specialty_filter = st.selectbox("🔧 تصفية حسب التخصص الفني:", options=["الكل"] + SPECIALTIES)
-
-            r2_col1, r2_col2, r2_col3 = st.columns([1, 1, 1])
-            with r2_col1:
-                cat_options = ["الكل"] + PRIMARY_CATEGORIES
-                category_filter = st.selectbox("🛡️ تصفية حسب الصنف الأساسي:", options=cat_options)
             with r2_col2:
+                specialty_filter = st.selectbox("🔧 تصفية حسب التخصص الفني:", options=["الكل"] + SPECIALTIES)
+            with r2_col3:
                 job_options = ["الكل"] + existing_jobs
                 job_filter = st.selectbox("💼 تصفية حسب المهنة الحالية:", options=job_options)
-            with r2_col3:
-                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                apply_filters = st.form_submit_button("🔍 تطبيق الفلاتر والبحث", type="primary", use_container_width=True)
 
         # تطبيق الفلاتر على البيانات
         filtered_df = all_tech_df.copy()
@@ -506,18 +505,37 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
         if specialty_filter != "الكل" and "التخصص الفني" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["التخصص الفني"] == specialty_filter]
 
-        if category_filter != "الكل" and "الصنف الأساسي" in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df["الصنف الأساسي"] == category_filter]
-
         if job_filter != "الكل" and "المهنة الحالية" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["المهنة الحالية"] == job_filter]
 
         # إحصائية نتائج البحث
         st.caption(f"📊 عدد الفنيين المطابقين للبحث: **{len(filtered_df)}** من إجمالي **{len(all_tech_df)}**")
 
-        # إخفاء عمود detachment_id التقني في العرض وعرض الجدول الأصيل RTL
-        display_df = filtered_df.drop(columns=["detachment_id"], errors="ignore")
+        # عرض جدول النتائج بالمعلومات الـ 5 المحددة فقط
+        TARGET_RESULT_COLUMNS = ["الرتبة", "الاسم الرباعي", "الصنف الأساسي", "المهنة الحالية", "مدة الخدمة بالمفرزة"]
+        display_columns = [col for col in TARGET_RESULT_COLUMNS if col in filtered_df.columns]
+        display_df = filtered_df[display_columns]
         st.markdown(styles.render_rtl_table(display_df), unsafe_allow_html=True)
+
+        # البطاقة التعريفية الشاملة للفني عند اختيار أو الضغط على اسمه
+        st.markdown("---")
+        st.markdown("#### 🪪 البطاقة التعريفية الشاملة للفني")
+        st.caption("اضغط أو اختر أي فني من القائمة لعرض بطاقته التعريفية العسكرية وكافة بياناته:")
+
+        if not filtered_df.empty:
+            tech_card_options = {"(اختر فني لعرض بطاقته العسكرية بالكامل...)": None}
+            for _, row_item in filtered_df.iterrows():
+                opt_key = f"🎖️ {row_item.get('الرتبة', '')} / {row_item.get('الاسم الرباعي', '')} (رقم عسكري: {row_item.get('الرقم العسكري', '')}) - {row_item.get('المستشفى الحالي', '')}"
+                tech_card_options[opt_key] = row_item.to_dict()
+
+            selected_card_person = st.selectbox(
+                "اختر الفني لعرض بطاقته:",
+                options=list(tech_card_options.keys()),
+                label_visibility="collapsed"
+            )
+
+            if selected_card_person and tech_card_options[selected_card_person] is not None:
+                st.markdown(styles.render_technician_card(tech_card_options[selected_card_person]), unsafe_allow_html=True)
 
         # زر تصدير النتائج إلى Excel
         if not display_df.empty:
