@@ -360,7 +360,7 @@ def reset_columns_order():
 # --- دوال الاستعلام والبيانات (Queries) ---
 
 def get_detachments_list():
-    """إرجاع قائمة بجميع المفارز كقواميس"""
+    """إرجاع قائمة بجميع المفارز مع قائد المفرزة (الأعلى رتبة دائماً)"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -372,6 +372,16 @@ def get_detachments_list():
     """)
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
+    
+    # تحديث قائد المفرزة ليكون الأعلى رتبة دائماً بين مرتباتها
+    for r in rows:
+        cmd = get_detachment_commander(r["id"])
+        if cmd:
+            r["supervisor_rank"] = cmd["rank"]
+            r["supervisor_name"] = cmd["name"]
+            if cmd.get("phone"):
+                r["contact_phone"] = cmd["phone"]
+                
     return rows
 
 def get_detachments_df():
@@ -398,13 +408,26 @@ def get_detachments_df():
     return df
 
 def get_detachment_by_id(detachment_id):
-    """إرجاع بيانات مفرزة محددة"""
+    """إرجاع بيانات مفرزة محددة مع تحديد قائد المفرزة تلقائياً كأعلى رتبة"""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM detachments WHERE id = ?;", (detachment_id,))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    d_dict = dict(row)
+    
+    # قائد المفرزة هو الأعلى رتبة دائماً بين مرتبات المفرزة
+    cmd = get_detachment_commander(detachment_id)
+    if cmd:
+        d_dict["supervisor_rank"] = cmd["rank"]
+        d_dict["supervisor_name"] = cmd["name"]
+        d_dict["commander_mil_id"] = cmd["military_id"]
+        if cmd.get("phone"):
+            d_dict["contact_phone"] = cmd["phone"]
+            
+    return d_dict
 
 def update_detachment_shortages(detachment_id, shortages_text):
     """تحديث حقل النواقص والاحتياجات البشرية للمفرزة"""
@@ -498,6 +521,37 @@ def get_mil_id_sort_key(mil_id_val):
         return int(digits) if digits else 999999999
     except Exception:
         return 999999999
+
+def get_detachment_commander(detachment_id):
+    """
+    تحديد قائد المفرزة تلقائياً وهو دائماً صاحب الرتبة الأعلى والأقدم رقماً عسكرياً بين مرتبات المفرزة
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT t.military_id, t.rank, t.full_name, t.phone_number
+    FROM technicians t
+    WHERE t.current_detachment_id = ?;
+    """, (detachment_id,))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    
+    if rows:
+        for r in rows:
+            r["_rank_weight"] = get_rank_weight(r["rank"])
+            r["_mil_sort"] = get_mil_id_sort_key(r["military_id"])
+            
+        rows.sort(key=lambda x: (x["_rank_weight"], -x["_mil_sort"]), reverse=True)
+        top = rows[0]
+        return {
+            "rank": top["rank"],
+            "name": top["full_name"],
+            "military_id": top["military_id"],
+            "phone": top.get("phone_number") or "",
+            "is_auto": True
+        }
+        
+    return None
 
 def get_all_technicians_df(apply_custom_columns=True):
     """إرجاع جدول جميع الفنيين مرتباً حسب الرتبة العسكرية (من الأعلى للأدنى) ثم الرقم العسكري الأقل"""

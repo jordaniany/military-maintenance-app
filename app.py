@@ -261,7 +261,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                 <div class="detachment-info-title">🏥 {selected_detachment['hospital_name']}</div>
                 <div>
                     <span class="detachment-pill">📍 المحافظة: <b>{selected_detachment['governorate']}</b></span>
-                    <span class="detachment-pill">👤 قائد المفرزة: <b>{selected_detachment['supervisor_rank']} / {selected_detachment['supervisor_name']}</b></span>
+                    <span class="detachment-pill" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #F59E0B; color: #FEF3C7;">👑 قائد المفرزة (الأعلى رتبة): <b style="color: #FDE68A;">{selected_detachment['supervisor_rank']} / {selected_detachment['supervisor_name']}</b></span>
                     <span class="detachment-pill">📞 رقم التواصل: <b>{selected_detachment['contact_phone'] or 'غير محدد'}</b></span>
                 </div>
                 {f'<div style="margin-top: 12px; color: #94A3B8; font-size: 13px;">📝 <b>ملاحظات المفرزة:</b> {selected_detachment["notes"]}</div>' if selected_detachment["notes"] else ''}
@@ -294,7 +294,7 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
             tech_df = db.get_technicians_by_detachment_df(selected_id, apply_custom_columns=True)
 
             if not tech_df.empty:
-                st.markdown(styles.render_rtl_table(tech_df), unsafe_allow_html=True)
+                st.markdown(styles.render_rtl_table(tech_df, highlight_commander=True), unsafe_allow_html=True)
             else:
                 st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك استيراد كشف الفنيين من ملف Excel أدناه أو إضافة فنيين من شاشة إدارة المرتبات.")
 

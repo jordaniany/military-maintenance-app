@@ -443,6 +443,24 @@ def apply_custom_styles():
         border: 1px solid #BBF7D0;
         font-size: 12.5px;
     }
+
+    .badge-commander {
+        display: inline-block;
+        background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+        color: #92400E;
+        font-weight: 800;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11.5px;
+        border: 1px solid #F59E0B;
+        margin-left: 6px;
+        box-shadow: 0 1px 3px rgba(245, 158, 11, 0.2);
+    }
+
+    .commander-row {
+        background-color: #FEFCE8 !important;
+        font-weight: 600;
+    }
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
@@ -482,10 +500,11 @@ def render_metric_card(title, value, subtitle="", card_type="default"):
     </div>
     """
 
-def render_rtl_table(df, max_height="550px"):
+def render_rtl_table(df, max_height="550px", highlight_commander=False):
     """
     توليد جدول HTML عربي من اليمين إلى اليسار (RTL) بالكامل
     يضمن ظهور الأعمدة بالترتيب العربي الطبيعي (العمود الأول في أقصى اليمين)
+    مع إمكانية تمييز قائد المفرزة (الأعلى رتبة)
     """
     if df is None or df.empty:
         return '<div style="color: #94A3B8; font-size: 13px; padding: 10px; text-align: right; direction: rtl;">⚠️ لا توجد بيانات لعرضها في الجدول.</div>'
@@ -495,11 +514,17 @@ def render_rtl_table(df, max_height="550px"):
     rows_html = []
     for idx, row in df.iterrows():
         cells = []
+        is_commander = (idx == 0 and highlight_commander)
+        
         for col in df.columns:
             val = str(row[col]) if row[col] is not None and not pd.isna(row[col]) else "-"
             # تنسيق خاص للحقول
             if col == "الرتبة":
-                cells.append(f'<td><span class="badge-rank">{val}</span></td>')
+                badge_extra = '<span class="badge-commander">👑 قائد المفرزة</span> ' if is_commander else ''
+                cells.append(f'<td>{badge_extra}<span class="badge-rank">{val}</span></td>')
+            elif col == "الاسم الرباعي":
+                name_style = ' style="font-weight: 800; color: #0F172A;"' if is_commander else ''
+                cells.append(f'<td{name_style}>{val}</td>')
             elif col == "الرقم العسكري":
                 cells.append(f'<td><span class="badge-mil-id">{val}</span></td>')
             elif col in ["الصنف الأساسي", "التخصص الفني"]:
@@ -508,7 +533,9 @@ def render_rtl_table(df, max_height="550px"):
                 cells.append(f'<td><b style="color: #15803D;">{val}</b></td>')
             else:
                 cells.append(f'<td>{val}</td>')
-        rows_html.append(f"<tr>{''.join(cells)}</tr>")
+                
+        row_style = ' class="commander-row"' if is_commander else ''
+        rows_html.append(f"<tr{row_style}>{''.join(cells)}</tr>")
         
     return f"""
     <div class="rtl-table-wrapper" style="max-height: {max_height};">
