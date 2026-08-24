@@ -252,30 +252,30 @@ def seed_if_empty(db_path=DB_NAME):
         cursor.execute("SELECT id, hospital_name FROM detachments;")
         hospitals = {row["hospital_name"]: row["id"] for row in cursor.fetchall()}
 
-        # 2. إضافة الفنيين الأوليين مع الصنف الأساسي ومكان السكن والمهنة الحالية
+        # 2. إضافة الفنيين الأوليين
         technicians_data = [
             # مستشفى الأمير راشد (إربد)
-            ("984512", "رقيب أول", "عبدالله محمود الخصاونة", "تكييف وتبريد", "سلاح الصيانة الملكي", "فني تكييف مركزي وشيلرات", "إربد - لواء بني عبيد (إيدون)", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-01-15", "0795111222", "فني ممتاز، متميز في صيانة الشيلرات المركزية ومحطات الأكسجين."),
-            ("874120", "رقيب", "عمر سامي بني هاني", "كهرباء قوى ومحولات", "سلاح الصيانة الملكي", "كهربائي لوحات توزيع ومحولات", "إربد - كفر يوبا", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-06-01", "0788222333", "ملتزم جداً وخبرة ممتازة في لوحات التوزيع الرئيسية."),
-            ("652198", "عريف", "سامر فؤاد بطاينة", "شبكات مياه وصحي", "الخدمات الطبية الملكية", "فني تمديدات ومضخات تحلية", "إربد - حكما", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2024-02-10", "0777333444", "أداء جيد، يتابع مضخات المياه العذبة ومحطة التحلية."),
+            ("984512", "رقيب أول", "عبدالله محمود الخصاونة", "تكييف وتبريد", None, "فني تكييف مركزي وشيلرات", "إربد - لواء بني عبيد (إيدون)", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-01-15", "0795111222", "فني ممتاز، متميز في صيانة الشيلرات المركزية ومحطات الأكسجين."),
+            ("874120", "رقيب", "عمر سامي بني هاني", "كهرباء قوى ومحولات", None, "كهربائي لوحات توزيع ومحولات", "إربد - كفر يوبا", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2023-06-01", "0788222333", "ملتزم جداً وخبرة ممتازة في لوحات التوزيع الرئيسية."),
+            ("652198", "عريف", "سامر فؤاد بطاينة", "شبكات مياه وصحي", None, "فني تمديدات ومضخات تحلية", "إربد - حكما", hospitals["مستشفى الأمير راشد بن الحسن العسكري"], "2024-02-10", "0777333444", "أداء جيد، يتابع مضخات المياه العذبة ومحطة التحلية."),
 
             # مستشفى الأمير علي (الكرك)
-            ("741852", "رقيب أول", "حمزة نايف المجالي", "كهرباء قوى ومحولات", "سلاح الصيانة الملكي", "مسؤول صيانة مولدات الطوارئ", "الكرك - لواء القصر", hospitals["مستشفى الأمير علي بن الحسين العسكري"], "2022-11-01", "0776444555", "كفاءة فنية عالية، يدير لوحات الطوارئ والمولدات الاحتياطية بنجاح."),
-            ("963258", "عريف", "ليث خالد الصرايرة", "تكييف وتبريد", "سلاح الهندسة الملكي", "فني سبليت وغرف عناية حثيثة", "الكرك - مؤتة", hospitals["مستشفى الأمير علي بن الحسين العسكري"], "2023-09-15", "0799555666", "متخصص في وحدات السبليت وغرف العناية الحثيثة."),
+            ("741852", "رقيب أول", "حمزة نايف المجالي", "كهرباء قوى ومحولات", None, "مسؤول صيانة مولدات الطوارئ", "الكرك - لواء القصر", hospitals["مستشفى الأمير علي بن الحسين العسكري"], "2022-11-01", "0776444555", "كفاءة فنية عالية، يدير لوحات الطوارئ والمولدات الاحتياطية بنجاح."),
+            ("963258", "عريف", "ليث خالد الصرايرة", "تكييف وتبريد", None, "فني سبليت وغرف عناية حثيثة", "الكرك - مؤتة", hospitals["مستشفى الأمير علي بن الحسين العسكري"], "2023-09-15", "0799555666", "متخصص في وحدات السبليت وغرف العناية الحثيثة."),
 
             # مستشفى الأمير هاشم (الزرقاء)
-            ("852963", "وكيل", "حسام جمال الغويري", "تكييف وتبريد", "سلاح الصيانة الملكي", "رئيس ورشة التكييف والميكانيك", "الزرقاء - حي معصوم", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2021-08-20", "0785666777", "أقدم فني بالمفرزة، خبرة واسعة في جميع أنظمة التبريد والميكانيك."),
-            ("369258", "رقيب", "يزن مخلد العموش", "كهرباء قوى ومحولات", "سلاح الصيانة الملكي", "فني كهرباء عامة وطوارئ", "المفرق - بلعما", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2023-03-01", "0774777888", "سرعة استجابة عالية للأعطال الكهربائية الطارئة."),
-            ("147852", "جندي أول", "معاذ علي الحنيطي", "شبكات مياه وصحي", "الخدمات الطبية الملكية", "سباك صحي ومتابعة خزانات", "عمان - سحاب", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2024-01-10", "0798888999", "فني واعد، منضبط ويؤدي المهام بدقة."),
-            ("258147", "عريف", "براء فيصل الخلايلة", "إنشائي عام", "سلاح الصيانة الملكي", "فني أعمال قواطع ودهان", "الزرقاء - الهاشمية", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2023-11-20", "0771999000", "أعمال دهان وصيانة عامة للأبواب والقواطع."),
+            ("852963", "وكيل", "حسام جمال الغويري", "تكييف وتبريد", None, "رئيس ورشة التكييف والميكانيك", "الزرقاء - حي معصوم", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2021-08-20", "0785666777", "أقدم فني بالمفرزة، خبرة واسعة في جميع أنظمة التبريد والميكانيك."),
+            ("369258", "رقيب", "يزن مخلد العموش", "كهرباء قوى ومحولات", None, "فني كهرباء عامة وطوارئ", "المفرق - بلعما", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2023-03-01", "0774777888", "سرعة استجابة عالية للأعطال الكهربائية الطارئة."),
+            ("147852", "جندي أول", "معاذ علي الحنيطي", "شبكات مياه وصحي", None, "سباك صحي ومتابعة خزانات", "عمان - سحاب", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2024-01-10", "0798888999", "فني واعد، منضبط ويؤدي المهام بدقة."),
+            ("258147", "عريف", "براء فيصل الخلايلة", "إنشائي عام", None, "فني أعمال قواطع ودهان", "الزرقاء - الهاشمية", hospitals["مستشفى الأمير هاشم بن الحسين العسكري"], "2023-11-20", "0771999000", "أعمال دهان وصيانة عامة للأبواب والقواطع."),
 
             # مستشفى الأميرة هيا (جرش / عجلون)
-            ("357159", "رقيب", "أنس بسام العتوم", "تكييف وتبريد", "سلاح الصيانة الملكي", "فني صيانة غسيل كلى وتبريد", "جرش - سوف", hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2023-05-12", "0789111333", "مسؤول صيانة قسم غسيل الكلى والعناية الحثيثة."),
-            ("951357", "عريف", "مؤمن أحمد الزغول", "إنشائي عام", "سلاح الهندسة الملكي", "فني جبس بورد وألمنيوم", "عجلون - عنجرة", hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2024-04-01", "0772222444", "ملم بأعمال الصيانة الإنشائية والجبس بورد والألمنيوم."),
+            ("357159", "رقيب", "أنس بسام العتوم", "تكييف وتبريد", None, "فني صيانة غسيل كلى وتبريد", "جرش - سوف", hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2023-05-12", "0789111333", "مسؤول صيانة قسم غسيل الكلى والعناية الحثيثة."),
+            ("951357", "عريف", "مؤمن أحمد الزغول", "إنشائي عام", None, "فني جبس بورد وألمنيوم", "عجلون - عنجرة", hospitals["مستشفى الأميرة هيا بنت الحسين العسكري"], "2024-04-01", "0772222444", "ملم بأعمال الصيانة الإنشائية والجبس بورد والألمنيوم."),
 
             # مستشفى الملكة علياء (عمان)
-            ("159357", "رقيب أول", "رامي ناصر الحديد", "كهرباء قوى ومحولات", "سلاح الصيانة الملكي", "خبير صيانة أنظمة UPS وتحكم", "عمان - القويسمة", hospitals["مستشفى الملكة علياء العسكري"], "2022-04-10", "0793333555", "خبير صيانة أنظمة UPS والمحولات الرئيسية."),
-            ("753951", "رقيب", "جهاد توفيق المناصير", "شبكات مياه وصحي", "الخدمات الطبية الملكية", "مشرف غلايات بخار وشبكات صرف", "عمان - مرج الحمام", hospitals["مستشفى الملكة علياء العسكري"], "2023-07-22", "0784444666", "يشرف على شبكات الصرف وغلايات البخار المركزية.")
+            ("159357", "رقيب أول", "رامي ناصر الحديد", "كهرباء قوى ومحولات", None, "خبير صيانة أنظمة UPS وتحكم", "عمان - القويسمة", hospitals["مستشفى الملكة علياء العسكري"], "2022-04-10", "0793333555", "خبير صيانة أنظمة UPS والمحولات الرئيسية."),
+            ("753951", "رقيب", "جهاد توفيق المناصير", "شبكات مياه وصحي", None, "مشرف غلايات بخار وشبكات صرف", "عمان - مرج الحمام", hospitals["مستشفى الملكة علياء العسكري"], "2023-07-22", "0784444666", "يشرف على شبكات الصرف وغلايات البخار المركزية.")
         ]
 
         cursor.executemany("""
@@ -297,9 +297,40 @@ def seed_if_empty(db_path=DB_NAME):
         """, movements_data)
         conn.commit()
 
+    # ترحيل وتنظيف تلقائي لأي إعدادات أو بيانات قديمة تحتوي مسميات أسلحة
+    try:
+        c = conn.cursor()
+        c.execute("UPDATE app_settings SET columns_order_json = ? WHERE id = 1;", (json.dumps(DEFAULT_TECH_COLUMNS, ensure_ascii=False),))
+        c.execute("""
+        UPDATE technicians 
+        SET specialty = current_job 
+        WHERE (specialty LIKE '%سلاح%' OR specialty LIKE '%الخدمات الطبية%' OR specialty IS NULL OR specialty = '') 
+          AND current_job IS NOT NULL AND TRIM(current_job) != '';
+        """)
+        c.execute("UPDATE technicians SET primary_category = NULL;")
+        conn.commit()
+    except Exception:
+        pass
+
     conn.close()
 
 # --- إدارة الإعدادات (Settings API) ---
+
+def sanitize_columns_order(cols):
+    """تنقية ترتيب الأعمدة واستبدال أي مسميات قديمة بـ الصنف والمهنة الحالية"""
+    if not cols or not isinstance(cols, list):
+        return DEFAULT_TECH_COLUMNS
+    cleaned = []
+    for c in cols:
+        if c in ["الصنف الأساسي", "التخصص الفني"]:
+            if "الصنف" not in cleaned:
+                cleaned.append("الصنف")
+        elif c not in cleaned and c in DEFAULT_TECH_COLUMNS:
+            cleaned.append(c)
+    for def_c in DEFAULT_TECH_COLUMNS:
+        if def_c not in cleaned:
+            cleaned.append(def_c)
+    return cleaned
 
 def get_app_settings():
     """جلب إعدادات المنظومة"""
@@ -311,7 +342,8 @@ def get_app_settings():
     if row:
         d = dict(row)
         try:
-            d["columns_order"] = json.loads(d["columns_order_json"])
+            raw_cols = json.loads(d["columns_order_json"])
+            d["columns_order"] = sanitize_columns_order(raw_cols)
         except Exception:
             d["columns_order"] = DEFAULT_TECH_COLUMNS
         return d
@@ -948,11 +980,14 @@ def import_technicians_from_df(df, detachment_id, update_existing=True, custom_c
         phone = clean_excel_value(row.get(col_map.get("phone_number", ""))) if col_map.get("phone_number") else ""
         notes = clean_excel_value(row.get(col_map.get("evaluation_and_notes", ""))) if col_map.get("evaluation_and_notes") else ""
 
-        # التبادل الذكي بين التخصص والمهنة إذا كان أحدهما فقط متوفراً في الملف
-        if not specialty and job:
+        # التبادل الذكي وتطهير الصنف من أي مسميات أسلحة
+        if any(w in specialty for w in ["سلاح", "الخدمات الطبية", "الصيانة"]):
+            if job and not any(w in job for w in ["سلاح", "الخدمات الطبية"]):
+                specialty = job
+            else:
+                specialty = "صنف عام"
+        elif not specialty and job:
             specialty = job
-        elif not job and specialty:
-            job = specialty
 
         # التحقق هل الفني موجود مسبقاً
         cursor.execute("SELECT * FROM technicians WHERE military_id = ?;", (mil_id,))
@@ -964,7 +999,6 @@ def import_technicians_from_df(df, detachment_id, update_existing=True, custom_c
                     final_rank = rank or existing["rank"]
                     final_name = name or existing["full_name"]
                     final_spec = specialty or existing["specialty"]
-                    final_cat = category or existing["primary_category"]
                     final_job = job or existing["current_job"]
                     final_res = residence or existing["residence"]
                     final_join = join_d or existing["join_date"]
@@ -973,23 +1007,22 @@ def import_technicians_from_df(df, detachment_id, update_existing=True, custom_c
 
                     cursor.execute("""
                     UPDATE technicians
-                    SET rank = ?, full_name = ?, specialty = ?, primary_category = ?, current_job = ?, 
+                    SET rank = ?, full_name = ?, specialty = ?, primary_category = NULL, current_job = ?, 
                         residence = ?, current_detachment_id = ?, join_date = ?, phone_number = ?, evaluation_and_notes = ?
                     WHERE military_id = ?;
-                    """, (final_rank, final_name, final_spec, final_cat, final_job, final_res, detachment_id, final_join, final_phone, final_notes, mil_id))
+                    """, (final_rank, final_name, final_spec, final_job, final_res, detachment_id, final_join, final_phone, final_notes, mil_id))
                     updated_count += 1
                 else:
                     skipped_count += 1
                     errors.append(f"الصف {row_num} (الرقم {mil_id}): مسجل مسبقاً وتم تخطيه بناءً على خيار عدم التحديث.")
             else:
                 final_rank = rank or "جندي أول"
-                final_spec = specialty or "صيانة عامة"
-                final_cat = category or "سلاح الصيانة الملكي"
+                final_spec = specialty or "صنف عام"
 
                 cursor.execute("""
                 INSERT INTO technicians (military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-                """, (mil_id, final_rank, name, final_spec, final_cat, job, residence, detachment_id, join_d, phone, notes))
+                VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?);
+                """, (mil_id, final_rank, name, final_spec, job, residence, detachment_id, join_d, phone, notes))
                 inserted_count += 1
         except Exception as e:
             skipped_count += 1
