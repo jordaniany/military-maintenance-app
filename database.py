@@ -5,6 +5,7 @@ Database models, SQLite operations, Settings management, and Schema Migration.
 
 import sqlite3
 import os
+import io
 import json
 import pandas as pd
 from datetime import datetime, date
