@@ -560,7 +560,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
 
                 # نموذج تعديل بيانات الفني المباشر
                 with st.expander(f"✏️ تعديل بيانات الفني ({selected_tech['الرتبة']} / {selected_tech['الاسم الرباعي']})", expanded=True):
-                    with st.form(key=f"edit_tech_form_{selected_tech['الرقم العسكري']}"):
+                    with st.form(key=f"card_modal_edit_tech_form_{selected_tech['الرقم العسكري']}"):
                         c_e1, c_e2 = st.columns(2)
                         with c_e1:
                             edit_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(selected_tech['الرتبة']) if selected_tech['الرتبة'] in MILITARY_RANKS else 0)
@@ -747,7 +747,7 @@ elif menu_choice == "👥 إدارة المرتبات والفنيين":
             target_tech = db.get_technician_by_id(edit_mil_id)
 
             if target_tech:
-                with st.form(key=f"edit_tech_form_{edit_mil_id}"):
+                with st.form(key=f"tab4_standalone_edit_tech_form_{edit_mil_id}"):
                     ec1, ec2 = st.columns(2)
                     with ec1:
                         st.text_input("الرقم العسكري (للقراءة فقط):", value=target_tech['military_id'], disabled=True)
@@ -871,11 +871,12 @@ elif menu_choice == "⚙️ الإعدادات وتخصيص المنظومة":
         "⚙️"
     )
 
-    set_tab1, set_tab2, set_tab3, set_tab4 = st.tabs([
+    set_tab1, set_tab2, set_tab3, set_tab4, set_tab5 = st.tabs([
         "🏢 هوية البرنامج ومسمياته",
         "🏥 إدارة وتعديل أسماء المستشفيات",
         "🏷️ تخصيص مسميات الأزرار",
-        "📊 ترتيب وظهور أعمدة الجداول (يمين / يسار)"
+        "📊 ترتيب وظهور أعمدة الجداول (يمين / يسار)",
+        "💾 النسخ الاحتياطي واستعادة قاعدة البيانات"
     ])
 
     # --------------------------------------------------------------------------
@@ -1066,3 +1067,55 @@ elif menu_choice == "⚙️ الإعدادات وتخصيص المنظومة":
             db.reset_columns_order()
             st.toast("تمت استعادة الترتيب الافتراضي للأعمدة.", icon="🔄")
             st.rerun()
+
+    # --------------------------------------------------------------------------
+    # تبويب 5: النسخ الاحتياطي واستعادة قاعدة البيانات
+    # --------------------------------------------------------------------------
+    with set_tab5:
+        st.markdown("#### 💾 إدارة النسخ الاحتياطي واستعادة قاعدة البيانات")
+        st.info("💡 يمكنك من هنا حفظ وتنزيل نسخة احتياطية كاملة من قاعدة البيانات، أو استعادة نسخة سابقة تم حفظها بضغطة زر واحدة.")
+
+        bk_col1, bk_col2 = st.columns(2)
+
+        with bk_col1:
+            st.markdown("##### 📥 تنزيل نسخة احتياطية كاملة:")
+            st.caption("احفظ نسخة من كافة البيانات (المفارز، الفنيين، حركات النقل، الإعدادات):")
+
+            # 1. تنزيل ملف SQLite الأصلي
+            db_bytes = db.get_db_bytes()
+            if db_bytes:
+                st.download_button(
+                    label="💾 تنزيل ملف قاعدة البيانات الكامل (SQLite .db)",
+                    data=db_bytes,
+                    file_name=f"military_maintenance_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.db",
+                    mime="application/x-sqlite3",
+                    type="primary",
+                    use_container_width=True
+                )
+
+            # 2. تنزيل ملف Excel شامل لكافة الجداول
+            excel_all_bytes = db.export_full_database_excel()
+            st.download_button(
+                label="📊 تصدير قاعدة البيانات كملف Excel شامل",
+                data=excel_all_bytes,
+                file_name=f"military_maintenance_full_excel_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+        with bk_col2:
+            st.markdown("##### 📤 استعادة قاعدة البيانات من ملف احتياطي:")
+            st.caption("ارفع ملف قاعدة البيانات (.db) لاستعادة كافة البيانات فورياً:")
+
+            uploaded_db = st.file_uploader("اختر ملف قاعدة البيانات (.db) للاستعادة:", type=["db", "sqlite", "sqlite3"], key="restore_db_uploader")
+            if uploaded_db is not None:
+                if st.button("⚠️ تأكيد استعادة قاعدة البيانات واستبدال البيانات الحالية", type="primary", use_container_width=True):
+                    with st.spinner("جاري استعادة وتحديث قاعدة البيانات..."):
+                        content = uploaded_db.read()
+                        ok, msg = db.restore_db_bytes(content)
+                        if ok:
+                            st.success(msg)
+                            st.toast("✅ تمت الاستعادة بنجاح!", icon="💾")
+                            st.rerun()
+                        else:
+                            st.error(msg)

@@ -1039,3 +1039,39 @@ def import_technicians_from_df(df, detachment_id, update_existing=True, custom_c
         "skipped": skipped_count,
         "errors": errors
     }
+
+# --- أدوات النسخ الاحتياطي والاستعادة لقاعدة البيانات ---
+
+def get_db_bytes(db_path=DB_NAME):
+    """قراءة ملف قاعدة البيانات بالكامل كـ bytes للتنزيل"""
+    if os.path.exists(db_path):
+        with open(db_path, "rb") as f:
+            return f.read()
+    return None
+
+def restore_db_bytes(data_bytes, db_path=DB_NAME):
+    """استعادة ملف قاعدة البيانات من ملف مرفوع"""
+    try:
+        with open(db_path, "wb") as f:
+            f.write(data_bytes)
+        init_db(db_path)
+        return True, "تمت استعادة قاعدة البيانات بنجاح!"
+    except Exception as e:
+        return False, f"حدث خطأ أثناء الاستعادة: {str(e)}"
+
+def export_full_database_excel(db_path=DB_NAME):
+    """تصدير قاعدة البيانات بالكامل إلى ملف Excel شامل لكافة الجداول"""
+    conn = get_db_connection(db_path)
+    detachments_df = pd.read_sql_query("SELECT * FROM detachments", conn)
+    technicians_df = pd.read_sql_query("SELECT * FROM technicians", conn)
+    movements_df = pd.read_sql_query("SELECT * FROM movement_log", conn)
+    settings_df = pd.read_sql_query("SELECT * FROM app_settings", conn)
+    conn.close()
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        detachments_df.to_excel(writer, index=False, sheet_name="المفارز")
+        technicians_df.to_excel(writer, index=False, sheet_name="الفنيين")
+        movements_df.to_excel(writer, index=False, sheet_name="سجل_حركات_النقل")
+        settings_df.to_excel(writer, index=False, sheet_name="الإعدادات")
+    return output.getvalue()

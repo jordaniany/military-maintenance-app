@@ -7,9 +7,8 @@
 service_account*.json
 
 # ===== قاعدة بيانات SQLite المحلية =====
-*.db
-*.sqlite
-*.sqlite3
+# allow tracking military_maintenance.db for cloud deployment persistence
+!military_maintenance.db
 
 # ===== البيئة الافتراضية Python =====
 .venv/
