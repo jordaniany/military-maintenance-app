@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="منظومة إدارة القوى البشرية ومرتبات مفارز صيانة المستشفيات العسكرية بالمحافظات - مديرية الخدمات الطبية الملكية">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="صيانة المستشفيات">
+  <meta name="theme-color" content="#0F172A">
+  <title>نظام إدارة مفارز الصيانة العسكرية | مديرية الخدمات الطبية الملكية</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0F172A;
+      direction: rtl;
+    }
+    
+    #splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      color: #FFFFFF;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .splash-logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+      animation: pulse 2s infinite ease-in-out;
+    }
+    
+    .splash-title {
+      font-size: 26px;
+      font-weight: 900;
+      color: #F8FAFC;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+    
+    .splash-subtitle {
+      font-size: 15px;
+      font-weight: 600;
+      color: #94A3B8;
+      margin-bottom: 24px;
+    }
+    
+    .splash-badge {
+      display: inline-block;
+      background: rgba(21, 128, 61, 0.25);
+      border: 1px solid #16A34A;
+      color: #86EFAC;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 18px;
+      border-radius: 20px;
+      margin-bottom: 28px;
+    }
+    
+    .splash-loader {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.15);
+      border-top: 4px solid #38BDF8;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    
+    .splash-status {
+      font-size: 13.5px;
+      color: #CBD5E1;
+      font-weight: 600;
+    }
+    
+    #app-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background-color: #0F172A;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- شاشة الترحيب العسكرية الذكية -->
+  <div id="splash-screen">
+    <div class="splash-logo">🛡️ ⚙️ 🏥</div>
+    <div class="splash-title">مديرية الخدمات الطبية الملكية</div>
+    <div class="splash-subtitle">شعبة صيانة المستشفيات - نظام إدارة المفارز والموجود الصباحي</div>
+    <div class="splash-badge">النسخة المحدثة 2026 • ربط مباشر</div>
+    <div class="splash-loader"></div>
+    <div id="status-text" class="splash-status">جاري الاتصال الآمن بالمنظومة المركزية...</div>
+  </div>
+
+  <!-- إطار التطبيق الحي المحدث بالكامل -->
+  <iframe id="app-frame" src="https://vermont-cached-behavioral-gcc.trycloudflare.com" allow="fullscreen; clipboard-read; clipboard-write; geolocation" onload="onAppLoaded()"></iframe>
+
+  <script>
+    // عند تحميل التطبيق بنجاح يتم إخفاء شاشة البداية
+    function onAppLoaded() {
+      const splash = document.getElementById('splash-screen');
+      if (splash) {
+        document.getElementById('status-text').innerText = 'تم الاتصال بنجاح! جاري فتح المنظومة...';
+        setTimeout(() => {
+          splash.style.opacity = '0';
+          splash.style.visibility = 'hidden';
+        }, 600);
+      }
+    }
+    
+    // حد أقصى للانتظار قبل الإخفاء التلقائي
+    setTimeout(() => {
+      onAppLoaded();
+    }, 4500);
+
+    // تسجيل Service Worker للـ PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => {});
+      });
+    }
+  </script>
+</body>
+</html>
