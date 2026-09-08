@@ -82,23 +82,92 @@ def export_to_excel(df: pd.DataFrame, sheet_name="البيانات") -> bytes:
         df.to_excel(writer, index=False, sheet_name=sheet_name)
     return output.getvalue()
 
+# --- التحقق من تسجيل الدخول (Authentication Gateway) ---
+if not st.session_state.get("authenticated", False):
+    styles.apply_custom_styles()
+    
+    _, login_col, _ = st.columns([1, 2, 1])
+    with login_col:
+        st.markdown("""<div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #F8FAFC; padding: 24px 20px; border-radius: 14px 14px 0 0; text-align: center; border-bottom: 4px solid #15803D; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); direction: rtl;"><div style="font-size: 42px; margin-bottom: 6px;">🛡️ ⚙️ 🏥</div><div style="font-size: 22px; font-weight: 900; color: #F8FAFC; letter-spacing: 0.5px;">مديرية الخدمات الطبية الملكية</div><div style="font-size: 13.5px; color: #94A3B8; font-weight: 600; margin-top: 4px;">شعبة صيانة المستشفيات - نظام إدارة المفارز والقوى البشرية والموجود الصباحي</div></div>""", unsafe_allow_html=True)
+        
+        with st.form(key="login_gateway_form"):
+            st.markdown("##### 🔐 تسجيل الدخول إلى المنظومة بواسطة الرقم العسكري:")
+            login_u = st.text_input("👤 الرقم العسكري / رقم التعريف:", placeholder="أدخل الرقم العسكري (مثال: 10001 أو 20002)...", key="input_login_u")
+            login_p = st.text_input("🔑 كلمة المرور:", type="password", placeholder="أدخل كلمة المرور...", key="input_login_p")
+            
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+            login_btn = st.form_submit_button("🚀 تسجيل الدخول", type="primary", use_container_width=True)
+            
+            if login_btn:
+                ok, user_dict, auth_msg = db.authenticate_user(login_u, login_p)
+                if ok:
+                    st.session_state["authenticated"] = True
+                    st.session_state["current_user"] = user_dict
+                    st.toast(f"مرحباً بك {user_dict['rank']} / {user_dict['full_name']}", icon="🛡️")
+                    st.rerun()
+                else:
+                    st.error(auth_msg)
+        
+        # دليل إرشادي سريع للحسابات الافتراضية
+        with st.expander("ℹ️ دليل الحسابات المصرحة بالرقم العسكري لتجربة المنظومة:", expanded=True):
+            st.markdown("""<div style="font-size: 13px; line-height: 1.8; color: #334155; direction: rtl; text-align: right;">👑 <b>حساب رئيس الفرع (المقدم المهندس رامي سبع العيش - الصلاحية الشاملة):</b><br>• الرقم العسكري: <code style="color: #0369A1; font-weight: 700;">10001</code> أو <code style="color: #0369A1; font-weight: 700;">admin</code> | كلمة المرور: <code>123456</code><br><br>🏥 <b>حساب قائد مفرزة مستشفى الأمير علي - الكرك (المقدم المهندسة منار):</b><br>• الرقم العسكري: <code style="color: #15803D; font-weight: 700;">20002</code> أو <code style="color: #15803D; font-weight: 700;">cmd_karak</code> | كلمة المرور: <code>123456</code><br><br>🏥 <b>حسابات قادة المفارز بالمستشفيات العسكرية بالمحافظات:</b><br>• مفرزة مستشفى الأمير راشد (إربد): الرقم العسكري <code style="color: #15803D; font-weight: 700;">20001</code> | كلمة المرور: <code>123456</code><br>• مفرزة مستشفى الأمير هاشم (الزرقاء): الرقم العسكري <code style="color: #15803D; font-weight: 700;">20003</code> | كلمة المرور: <code>123456</code><br>• مفرزة مستشفى الأميرة هيا (جرش/عجلون): الرقم العسكري <code style="color: #15803D; font-weight: 700;">20004</code> | كلمة المرور: <code>123456</code><br>• مفرزة مستشفى الملكة علياء (عمان): الرقم العسكري <code style="color: #15803D; font-weight: 700;">20005</code> | كلمة المرور: <code>123456</code></div>""", unsafe_allow_html=True)
+            
+    st.stop()
+
+# ==============================================================================
+# المستخدم المسجل والجلسة النشطة (Authenticated Session)
+# ==============================================================================
+current_user = st.session_state.get("current_user", {})
+user_role = current_user.get("role", "قائد مفرزة")
+is_branch_chief = (user_role == "رئيس الفرع")
+active_detachment_id = current_user.get("detachment_id")
+
 # --- الشريط الجانبي (Sidebar) ---
 styles.render_sidebar_header(
     title=settings.get("sidebar_title", "شعبة الصيانة والتشغيل"),
     subtitle="إدارة مفارز المستشفيات العسكرية"
 )
 
-menu_choice = st.sidebar.radio(
-    "القائمة الرئيسية:",
-    [
+# بطاقة المستخدم النشط في الشريط الجانبي
+hosp_badge_str = f"🏥 <b>المفرزة:</b> {current_user['hospital_name']}" if current_user.get('hospital_name') else "🛡️ <b>النطاق:</b> إشراف وتعديل شامل لكافة المفارز"
+st.sidebar.markdown(f"""
+<div class="user-profile-badge">
+    <div style="font-size: 14.5px; font-weight: 800; color: #38BDF8; margin-bottom: 4px;">
+        👤 {current_user.get('rank', 'مقدم')} / {current_user.get('full_name', 'المهندس رامي سبع العيش')}
+    </div>
+    <div style="font-size: 12.5px; color: #CBD5E1;">
+        🎖️ <b>الصفة:</b> <span style="color: #FDE68A; font-weight: 700;">{user_role}</span><br>
+        {hosp_badge_str}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# زر تسجيل الخروج
+if st.sidebar.button("🚪 تسجيل الخروج", key="btn_logout_top", use_container_width=True, type="secondary"):
+    st.session_state["authenticated"] = False
+    st.session_state["current_user"] = None
+    st.toast("تم تسجيل الخروج بنجاح.", icon="👋")
+    st.rerun()
+
+st.sidebar.markdown("---")
+
+# بناء خيارات القائمة حسب الصلاحيات والدور
+if is_branch_chief:
+    menu_options = [
         "📊 لوحة المؤشرات العامة",
+        "📋 الموجود الصباحي اليومي",
         "🏥 كشف المفارز والمستشفيات",
         "👥 إدارة المرتبات والفنيين",
         "🔄 سجل حركات النقل",
         "⚙️ الإعدادات وتخصيص المنظومة"
-    ],
-    index=0
-)
+    ]
+else:
+    menu_options = [
+        "📋 الموجود الصباحي لمفرزتي",
+        "🏥 كشف مفرزتي وبيانات المرتب"
+    ]
+
+menu_choice = st.sidebar.radio("القائمة الرئيسية:", menu_options, index=0)
 
 st.sidebar.markdown("---")
 
@@ -215,32 +284,660 @@ if menu_choice == "📊 لوحة المؤشرات العامة":
 
 
 # ==============================================================================
-# 2. كشف المفارز والمستشفيات (Detachments View)
+# 2. الموجود الصباحي اليومي (Daily Morning Roll Call)
 # ==============================================================================
-elif menu_choice == "🏥 كشف المفارز والمستشفيات":
-    styles.render_page_header(
-        "كشف وجاهزية المفارز والمستشفيات",
-        "عرض تفاصيل المفرزة، تحديث وحفظ النواقص والاحتياجات الفورية، وإدارة كشف مرتبات المستشفى",
-        "🏥"
-    )
+elif menu_choice in ["📋 الموجود الصباحي اليومي", "📋 الموجود الصباحي لمفرزتي"]:
+    is_branch_chief = (user_role == "رئيس الفرع")
+    active_commander_detachment = db.get_detachment_by_id(active_detachment_id) if active_detachment_id else None
+
+    if is_branch_chief:
+        styles.render_page_header(
+            "الموجود الصباحي اليومي للمفارز",
+            "إشراف قيادي على كشوفات الموجود اليومي لكافة المفارز بالمملكة، متابعة الجاهزية، وصلاحية التعديل الشاملة للأيام السابقة",
+            "📋"
+        )
+    else:
+        hosp_title = active_commander_detachment['hospital_name'] if active_commander_detachment else 'المفرزة'
+        styles.render_page_header(
+            f"الموجود الصباحي - كشف مرتبات {hosp_title}",
+            "تسجيل واعتماد الحضور والموجود اليومي لفنيي المفرزة (موجود / مجاز / مراجعة مرضية)، وأرشيف الأيام السابقة",
+            "📋"
+        )
+
+    # --------------------------------------------------------------------------
+    # أ. واجهة قائد المفرزة (Detachment Commander View)
+    # --------------------------------------------------------------------------
+    if not is_branch_chief:
+        if not active_commander_detachment:
+            st.error("⚠️ لم يتم تحديد المفرزة المسندة لحسابك. يرجى مراجعة رئيس الفرع لربط حسابك بالمفرزة.")
+        else:
+            det_id = active_commander_detachment["id"]
+            det_name = active_commander_detachment["hospital_name"]
+            det_gov = active_commander_detachment["governorate"]
+            supervisor_name = active_commander_detachment["supervisor_name"]
+            supervisor_rank = active_commander_detachment["supervisor_rank"]
+
+            cmd_tab1, cmd_tab2 = st.tabs([
+                "📝 تسجيل / كشف موجود اليوم",
+                "🗓️ كشف وسجل الأيام السابقة للمفرزة"
+            ])
+
+            # --- تبويب موجود اليوم للمفرزة ---
+            with cmd_tab1:
+                col_d1, col_d2 = st.columns([1, 2])
+                with col_d1:
+                    selected_roll_date = st.date_input(
+                        "📅 تاريخ الموجود الصباحي:",
+                        value=date.today(),
+                        key="cmd_roll_date"
+                    )
+                with col_d2:
+                    st.markdown(f"""
+                    <div style="background: rgba(15, 23, 42, 0.04); border: 1px solid #CBD5E1; border-radius: 8px; padding: 10px 14px; margin-top: 24px; font-size: 13.5px;">
+                        🏥 <b>المفرزة:</b> {det_name} ({det_gov}) | 👤 <b>قائد المفرزة:</b> {supervisor_rank} / {supervisor_name}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                roll_date_str = str(selected_roll_date)
+                existing_rc, existing_entries = db.get_daily_roll_call(det_id, roll_date_str)
+
+                # حالة 1: تم حفظ واعتماد الموجود مسبقاً (مغلق ومحمي من التعديل)
+                if existing_rc is not None:
+                    st.markdown(f"""
+                    <div class="rollcall-banner">
+                        <div>
+                            <div style="font-size: 17px; font-weight: 800; color: #38BDF8; margin-bottom: 4px;">
+                                🔒 تم حفظ واعتماد الموجود الصباحي لهذا اليوم بنجاح
+                            </div>
+                            <div style="font-size: 13px; color: #94A3B8;">
+                                👤 <b>القائم بالاعتماد:</b> {existing_rc['saved_by_rank']} / {existing_rc['saved_by_name']} &nbsp;|&nbsp; 
+                                ⏰ <b>وقت الحفظ:</b> {existing_rc['saved_at']}
+                            </div>
+                        </div>
+                        <div>
+                            <span class="badge-locked">🔒 معتمد ومقفل</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.warning("⚠️ **قاعدة القفل:** ما دام أتم قائد المفرزة الحفظ للموجود الصباحي فلا يمكن إجراء أي تعديل عليه. (صلاحية التعديل للأيام السابقة أو فك القفل مقتصرة حصرياً على **رئيس الفرع**).")
+
+                    # بطاقات إحصائيات الموجود المعتمد
+                    mcol1, mcol2, mcol3, mcol4, mcol5 = st.columns(5)
+                    with mcol1:
+                        st.markdown(styles.render_metric_card("القوة الإجمالية", f"{existing_rc['total_strength']} فني", "كشف المرتب الكامل", "default"), unsafe_allow_html=True)
+                    with mcol2:
+                        st.markdown(styles.render_metric_card("الموجود الفعلي", f"{existing_rc['present_count']} فني", "حاضر بالمفرزة", "info"), unsafe_allow_html=True)
+                    with mcol3:
+                        st.markdown(styles.render_metric_card("المجازين", f"{existing_rc['leave_count']} فني", "إجازات رسمية", "warning"), unsafe_allow_html=True)
+                    with mcol4:
+                        st.markdown(styles.render_metric_card("مراجعة مرضية", f"{existing_rc['sick_count']} فني", "مراجعات وتقارير", "alert"), unsafe_allow_html=True)
+                    with mcol5:
+                        readiness = round((existing_rc['present_count'] / existing_rc['total_strength'] * 100), 1) if existing_rc['total_strength'] > 0 else 0
+                        st.markdown(styles.render_metric_card("نسبة الجاهزية", f"{readiness}%", "نسبة القوة الحاضرة", "info"), unsafe_allow_html=True)
+
+                    if existing_rc.get("notes"):
+                        st.info(f"📝 **ملاحظات قائد المفرزة:** {existing_rc['notes']}")
+
+                    # عرض جدول المرتب المعتمد بالشارات اللونية
+                    st.markdown(f"#### 👥 كشف مرتبات المفرزة المعتمد لتاريخ ({roll_date_str})")
+                    
+                    roster_rows = []
+                    for idx, e in enumerate(existing_entries, 1):
+                        st_val = e.get("status", "موجود")
+                        if st_val == "موجود":
+                            st_html = '<span class="badge-present">✅ موجود</span>'
+                        elif st_val == "مجاز":
+                            st_html = '<span class="badge-leave">🏖️ مجاز</span>'
+                        else:
+                            st_html = '<span class="badge-sick">🏥 مراجعة مرضية</span>'
+
+                        note_val = e.get("notes") or "-"
+                        roster_rows.append(f'<tr><td style="text-align: center; font-weight: 700;">{idx}</td><td><span class="badge-mil-id">{e["military_id"]}</span></td><td><span class="badge-rank">{e["rank"]}</span></td><td style="font-weight: 800; color: #0F172A;">{e["full_name"]}</td><td><span class="badge-specialty">{e["specialty"]}</span></td><td style="text-align: center;">{st_html}</td><td style="color: #475569;">{note_val}</td></tr>')
+
+                    table_html = f'<div class="rtl-table-wrapper"><table class="rtl-table" dir="rtl"><thead><tr><th style="text-align: center; width: 40px;">م</th><th>الرقم العسكري</th><th>الرتبة</th><th>الاسم الرباعي</th><th>الصنف</th><th style="text-align: center;">الحالة</th><th>الملاحظات / سبب الغياب</th></tr></thead><tbody>{"".join(roster_rows)}</tbody></table></div>'
+                    st.markdown(table_html, unsafe_allow_html=True)
+
+                    # زر تصدير كشف الموجود إلى Excel
+                    excel_bytes = db.export_roll_call_to_excel(existing_rc, existing_entries)
+                    st.download_button(
+                        label=f"📥 تصدير كشف موجود ({roll_date_str}) إلى Excel",
+                        data=excel_bytes,
+                        file_name=f"موجود_{det_name.replace(' ', '_')}_{roll_date_str}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"dl_locked_rc_{det_id}_{roll_date_str}",
+                        use_container_width=True
+                    )
+
+                # حالة 2: لم يتم الحفظ بعد -> نموذج إدخال الموجود الصباحي
+                else:
+                    tech_df = db.get_technicians_by_detachment_df(det_id, apply_custom_columns=False)
+                    if tech_df.empty:
+                        st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة لإدخال الموجود. يرجى إضافة مرتبات للمفرزة أولاً.")
+                    else:
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%); border: 1px solid #86EFAC; border-radius: 12px; padding: 16px 20px; margin-bottom: 18px;">
+                            <div style="font-weight: 800; color: #166534; font-size: 16px; margin-bottom: 4px;">
+                                📋 كشف الموجود الصباحي وتحديد تمام المرتب ليوم: <b>{roll_date_str}</b>
+                            </div>
+                            <div style="font-size: 13.5px; color: #15803D;">
+                                ضع إشارة أمام حالة كل فرد من مرتب المفرزة (<b>موجود ✅</b> أو <b>مجاز 🏖️</b> أو <b>مراجعة مرضية 🏥</b>)، ثم اضغط على حفظ الموجود للاعتماد النهائي.
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # أزرار الإجراء السريع
+                        act_col1, act_col2 = st.columns([2, 2])
+                        with act_col1:
+                            preset_all_present = st.button("⚡ تحديد كافة المرتب (موجود ✅)", key="btn_all_present_cmd", type="secondary", use_container_width=True)
+                            if preset_all_present:
+                                for _, r in tech_df.iterrows():
+                                    st.session_state[f"status_cmd_{r['الرقم العسكري']}"] = "موجود"
+                                st.toast("تم ضبط كافة المرتب على حالة 'موجود'", icon="✅")
+
+                        # ترويسة الجدول التفاعلي
+                        st.markdown("""
+                        <div style="background: #0F172A; color: #F8FAFC; border-radius: 8px 8px 0 0; padding: 10px 16px; font-weight: 800; font-size: 13.5px; display: flex; justify-content: space-between; direction: rtl;">
+                            <div style="width: 38%;">👥 بيانات الفني والرتبة والصنف</div>
+                            <div style="width: 38%; text-align: center;">🎯 حالة التواجد (موجود / مجاز / مراجعة مرضية)</div>
+                            <div style="width: 24%; text-align: right;">📝 الملاحظات والسبب</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        with st.form(key=f"cmd_roll_call_form_{det_id}_{roll_date_str}"):
+                            entries_to_save = []
+                            for idx, (_, r) in enumerate(tech_df.iterrows(), 1):
+                                m_id = str(r["الرقم العسكري"])
+                                rank = str(r["الرتبة"])
+                                name = str(r["الاسم الرباعي"])
+                                spec = str(r["الصنف"])
+                                is_cmd = (idx == 1)
+
+                                row_col1, row_col2, row_col3 = st.columns([4, 4, 3])
+                                with row_col1:
+                                    cmd_badge = "👑 " if is_cmd else ""
+                                    st.markdown(f"""
+                                    <div style="padding-top: 4px; line-height: 1.4;">
+                                        <b style="color: #0F172A; font-size: 14px;">{idx}. {cmd_badge}{rank} / {name}</b><br>
+                                        <span class="badge-mil-id">{m_id}</span> <span class="badge-specialty">{spec}</span>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                                with row_col2:
+                                    def_status = st.session_state.get(f"status_cmd_{m_id}", "موجود")
+                                    status_options = ["موجود", "مجاز", "مراجعة مرضية"]
+                                    status_idx = status_options.index(def_status) if def_status in status_options else 0
+                                    
+                                    sel_status = st.radio(
+                                        f"الحالة ({m_id}):",
+                                        options=status_options,
+                                        index=status_idx,
+                                        key=f"status_cmd_{m_id}",
+                                        horizontal=True,
+                                        label_visibility="collapsed"
+                                    )
+
+                                with row_col3:
+                                    item_note = st.text_input(
+                                        f"ملاحظة / سبب ({m_id}):",
+                                        value="",
+                                        key=f"note_cmd_{m_id}",
+                                        placeholder="ملاحظات / سبب الغياب...",
+                                        label_visibility="collapsed"
+                                    )
+
+                                entries_to_save.append({
+                                    "military_id": m_id,
+                                    "rank": rank,
+                                    "full_name": name,
+                                    "specialty": spec,
+                                    "status": sel_status,
+                                    "notes": item_note
+                                })
+                                st.markdown("<hr style='margin: 4px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
+
+                            # ملاحظات عامة
+                            general_notes = st.text_area(
+                                "📝 ملاحظات قائد المفرزة على الموجود الصباحي (اختياري):",
+                                placeholder="اكتب أي ملاحظات تتعلق بالجاهزية الفنية أو المناوبات أو النواقص...",
+                                key="cmd_general_notes",
+                                height=70
+                            )
+
+                            st.markdown("""
+                            <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #991B1B; margin: 12px 0;">
+                                ⚠️ <b>قاعدة القفل العسكرية:</b> بمجرد الضغط على حفظ واعتماد الموجود الصباحي، يتم قفل السجل نهائياً ولا يمكن لقائد المفرزة تعديله بعد ذلك.
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            save_submitted = st.form_submit_button("💾 حفظ واعتماد الموجود الصباحي للمفرزة", type="primary", use_container_width=True)
+
+                            if save_submitted:
+                                with st.spinner("جاري حفظ واعتماد الموجود الصباحي..."):
+                                    ok, msg = db.save_daily_roll_call(
+                                        detachment_id=det_id,
+                                        roll_call_date=roll_date_str,
+                                        entries=entries_to_save,
+                                        saved_by_rank=supervisor_rank,
+                                        saved_by_name=supervisor_name,
+                                        notes=general_notes,
+                                        is_branch_chief=False
+                                    )
+                                    if ok:
+                                        st.success(msg)
+                                        st.toast("✅ تم حفظ الموجود الصباحي واعتماده بنجاح!", icon="🛡️")
+                                        st.rerun()
+                                    else:
+                                        st.error(msg)
+
+            # --- تبويب سجل الأيام السابقة للمفرزة ---
+            with cmd_tab2:
+                st.markdown(f"#### 🗓️ أرشيف وسجل الموجود الصباحي للأيام السابقة ({det_name})")
+                st.caption("يعرض سجلات الموجود الصباحي المعتمدة للمفرزة. التعديل على الأيام السابقة مقتصر على رئيس الفرع فقط.")
+
+                h_col1, h_col2 = st.columns(2)
+                with h_col1:
+                    h_start = st.date_input("من تاريخ:", value=date.today().replace(day=1), key="cmd_h_start")
+                with h_col2:
+                    h_end = st.date_input("إلى تاريخ:", value=date.today(), key="cmd_h_end")
+
+                history_df = db.get_roll_call_history_df(detachment_id=det_id, start_date=h_start, end_date=h_end)
+
+                if not history_df.empty:
+                    display_cols = ["رقم السجل", "التاريخ", "القوة الإجمالية", "الموجود", "المجاز", "مراجعة مرضية", "نسبة الجاهزية %", "القائم بالحفظ", "تاريخ ووقت الحفظ", "ملاحظات الموجود"]
+                    st.markdown(styles.render_rtl_table(history_df[display_cols]), unsafe_allow_html=True)
+
+                    # تفاصيل سجل محدد وتنزيل إكسل
+                    st.markdown("##### 🔍 استعراض تفاصيل يوم محدد من الأرشيف:")
+                    available_records = history_df["التاريخ"].tolist()
+                    selected_hist_date = st.selectbox("اختر التاريخ لعرض كشف المرتب المفصل:", options=available_records, key="cmd_sel_hist_date")
+
+                    if selected_hist_date:
+                        hist_rc, hist_entries = db.get_daily_roll_call(det_id, selected_hist_date)
+                        if hist_rc:
+                            st.markdown(f"""
+                            <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 13px;">
+                                📅 <b>تاريخ الكشف:</b> {hist_rc['roll_call_date']} &nbsp;|&nbsp; 
+                                👥 <b>القوة:</b> {hist_rc['total_strength']} | 
+                                🟢 <b>الموجود:</b> {hist_rc['present_count']} | 
+                                🟡 <b>المجاز:</b> {hist_rc['leave_count']} | 
+                                🔴 <b>مراجعة مرضية:</b> {hist_rc['sick_count']} &nbsp;|&nbsp; 
+                                👤 <b>المعتمد:</b> {hist_rc['saved_by_rank']} / {hist_rc['saved_by_name']}
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            h_excel = db.export_roll_call_to_excel(hist_rc, hist_entries)
+                            st.download_button(
+                                label=f"📥 تنزيل كشف ({selected_hist_date}) بصيغة Excel",
+                                data=h_excel,
+                                file_name=f"موجود_{det_name}_{selected_hist_date}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"dl_hist_{det_id}_{selected_hist_date}",
+                                use_container_width=True
+                            )
+                else:
+                    st.info(f"ℹ️ لا توجد سجلات موجود صباحي محفوظة لمفرزة ({det_name}) في الفترة المحددة.")
+
+    # --------------------------------------------------------------------------
+    # ب. واجهة رئيس الفرع (Branch Chief View - Full Authority)
+    # --------------------------------------------------------------------------
+    else:
+        all_detachments_list = db.get_detachments_list()
+        bc_tab1, bc_tab2, bc_tab3 = st.tabs([
+            "📊 الموقف العام اليومي لكافة المفارز",
+            "📝 استعراض / تعديل كشف مفرزة محددة",
+            "🗓️ الأرشيف الشامل والبحث المتقدم"
+        ])
+
+        # --- تبويب 1: الموقف العام لكافة المفارز ---
+        with bc_tab1:
+            col_b1, col_b2 = st.columns([1, 2])
+            with col_b1:
+                bc_selected_date = st.date_input(
+                    "📅 اختيار تاريخ الموقف العام:",
+                    value=date.today(),
+                    key="bc_global_date"
+                )
+            with col_b2:
+                st.markdown("""<div style="background: rgba(2, 132, 199, 0.08); border: 1px solid #BAE6FD; border-radius: 8px; padding: 10px 16px; margin-top: 24px; font-size: 13.5px; color: #0369A1;">👑 <b>لوحة تحكم رئيس الفرع:</b> متابعة لحظية لحالة تسليم الموجود الصباحي وجاهزية كافة المفارز بالمستشفيات العسكرية.</div>""", unsafe_allow_html=True)
+
+            bc_date_str = str(bc_selected_date)
+            consol_data = db.get_consolidated_roll_call_summary(bc_date_str)
+
+            # بطاقات الموقف العام
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.markdown(styles.render_metric_card("إجمالي المفارز", f"{consol_data['total_detachments']} مفرزة", "المفارز الميدانية", "default"), unsafe_allow_html=True)
+            with c2:
+                sub_class = "default" if consol_data['submitted_detachments'] == consol_data['total_detachments'] else "info"
+                st.markdown(styles.render_metric_card("مفارز سلّمت الموجود", f"{consol_data['submitted_detachments']} مفرزة", f"معلقة: {consol_data['pending_detachments']}", sub_class), unsafe_allow_html=True)
+            with c3:
+                st.markdown(styles.render_metric_card("القوة البشرية الإجمالية", f"{consol_data['total_strength']} فني", f"الموجود: {consol_data['total_present']} فني", "info"), unsafe_allow_html=True)
+            with c4:
+                read_class = "info" if consol_data['overall_readiness'] >= 75 else ("warning" if consol_data['overall_readiness'] >= 50 else "alert")
+                st.markdown(styles.render_metric_card("نسبة الجاهزية الكلية", f"{consol_data['overall_readiness']}%", f"مجاز: {consol_data['total_leave']} | مرضي: {consol_data['total_sick']}", read_class), unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # جدول الموقف العام لكافة المفارز
+            st.markdown(f"#### 📋 كشف جاهزية وتسليم المفارز لتاريخ ({bc_date_str}):")
+            
+            table_rows = []
+            for idx, item in enumerate(consol_data["summary_list"], 1):
+                if item["is_submitted"]:
+                    badge_html = '<span class="badge-present">✅ تم التسليم والاعتماد</span>'
+                else:
+                    badge_html = '<span class="badge-sick">⏳ قيد الانتظار (معلق)</span>'
+
+                table_rows.append(f'<tr><td style="text-align: center; font-weight: 700;">{idx}</td><td style="font-weight: 800; color: #0F172A;">{item["hospital_name"]}</td><td><span class="badge-rank">{item["governorate"]}</span></td><td>{item["supervisor"]}</td><td style="text-align: center;">{badge_html}</td><td style="text-align: center; font-weight: 700;">{item["total_strength"]}</td><td style="text-align: center; color: #166534; font-weight: 800;">{item["present_count"]}</td><td style="text-align: center; color: #92400E; font-weight: 700;">{item["leave_count"]}</td><td style="text-align: center; color: #991B1B; font-weight: 700;">{item["sick_count"]}</td><td style="text-align: center; font-weight: 800; color: #0284C7;">{item["readiness_pct"]}%</td><td style="font-size: 12px; color: #64748B;">{item["saved_by"]}</td></tr>')
+
+            consol_table_html = f'<div class="rtl-table-wrapper"><table class="rtl-table" dir="rtl"><thead><tr><th style="text-align: center; width: 40px;">م</th><th>المستشفى العسكري / المفرزة</th><th>المحافظة</th><th>قائد المفرزة</th><th style="text-align: center;">حالة التسليم</th><th style="text-align: center;">القوة</th><th style="text-align: center;">الموجود</th><th style="text-align: center;">المجاز</th><th style="text-align: center;">مرضية</th><th style="text-align: center;">الجاهزية %</th><th>المعتمد</th></tr></thead><tbody>{"".join(table_rows)}</tbody></table></div>'
+            st.markdown(consol_table_html, unsafe_allow_html=True)
+
+            # تصدير تقرير الموقف العام لليوم بالكامل
+            summary_df = pd.DataFrame(consol_data["summary_list"])
+            if not summary_df.empty:
+                rename_map = {
+                    "hospital_name": "المستشفى / المفرزة",
+                    "governorate": "المحافظة",
+                    "supervisor": "قائد المفرزة",
+                    "contact_phone": "هاتف التواصل",
+                    "status_badge": "حالة التسليم",
+                    "total_strength": "القوة الإجمالية",
+                    "present_count": "الموجود الفعلي",
+                    "leave_count": "المجاز",
+                    "sick_count": "مراجعة مرضية",
+                    "readiness_pct": "نسبة الجاهزية %",
+                    "saved_by": "القائم بالاعتماد",
+                    "saved_at": "تاريخ ووقت الحفظ",
+                    "notes": "الملاحظات"
+                }
+                export_cols = [c for c in rename_map.keys() if c in summary_df.columns]
+                out_df = summary_df[export_cols].rename(columns=rename_map)
+
+                all_day_excel = export_to_excel(out_df, sheet_name=f"موقف_{bc_date_str}")
+                st.download_button(
+                    label=f"📥 تصدير تقرير الموقف العام الشامل ليوم ({bc_date_str}) إلى Excel",
+                    data=all_day_excel,
+                    file_name=f"الموقف_العام_للمفارز_{bc_date_str}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"dl_bc_consol_{bc_date_str}",
+                    use_container_width=True
+                )
+
+        # --- تبويب 2: استعراض وتعديل كشف مفرزة محددة (صلاحية رئيس الفرع الحصرية) ---
+        with bc_tab2:
+            st.markdown("#### ✏️ فحص وتعديل كشف الموجود الصباحي لمفرزة (صلاحية رئيس الفرع)")
+            st.info("💡 **تنويه الصلاحية:** كرئيس فرع، يمكنك استعراض أو تعديل أو تصحيح كشف الموجود الصباحي لأي مفرزة وفي أي تاريخ سابق وحفظ التعديلات رسمياً.")
+
+            col_bc_det, col_bc_dt = st.columns([2, 1])
+            with col_bc_det:
+                if all_detachments_list:
+                    bc_det_options = {f"{d['hospital_name']} ({d['governorate']})": d['id'] for d in all_detachments_list}
+                    bc_selected_det_label = st.selectbox("🏢 اختر المفرزة / المستشفى المراد مراجعته أو تعديله:", options=list(bc_det_options.keys()), key="bc_edit_det_sel")
+                    target_det_id = bc_det_options[bc_selected_det_label]
+                    target_det = db.get_detachment_by_id(target_det_id)
+                else:
+                    st.warning("لا توجد مفارز مسجلة.")
+                    target_det_id = None
+                    target_det = None
+
+            with col_bc_dt:
+                target_date = st.date_input("📅 تاريخ الكشف المراد مراجعته:", value=date.today(), key="bc_edit_date_sel")
+
+            if target_det and target_date:
+                t_date_str = str(target_date)
+                t_rc, t_entries = db.get_daily_roll_call(target_det_id, t_date_str)
+
+                # إذا كان السجل محفوظاً:
+                if t_rc:
+                    st.markdown(f"""
+                    <div class="rollcall-banner">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 800; color: #38BDF8;">
+                                🛡️ كشف مفرزة {target_det['hospital_name']} لتاريخ {t_date_str}
+                            </div>
+                            <div style="font-size: 13px; color: #CBD5E1; margin-top: 4px;">
+                                👤 <b>المعتمد الأصلي:</b> {t_rc['saved_by_rank']} / {t_rc['saved_by_name']} | 
+                                ⏰ <b>وقت الحفظ:</b> {t_rc['saved_at']} | 
+                                🟢 <b>موجود:</b> {t_rc['present_count']} | 
+                                🟡 <b>مجاز:</b> {t_rc['leave_count']} | 
+                                🔴 <b>مرضي:</b> {t_rc['sick_count']}
+                            </div>
+                        </div>
+                        <div>
+                            <span class="badge-locked">🔒 محفوظ في السجلات</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("""
+                    <div style="background: #0F172A; color: #F8FAFC; border-radius: 8px 8px 0 0; padding: 10px 16px; font-weight: 800; font-size: 13.5px; display: flex; justify-content: space-between; direction: rtl;">
+                        <div style="width: 38%;">👥 بيانات الفني والرتبة والصنف</div>
+                        <div style="width: 38%; text-align: center;">🎯 حالة التواجد (موجود / مجاز / مراجعة مرضية)</div>
+                        <div style="width: 24%; text-align: right;">📝 الملاحظات والسبب</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    with st.form(key=f"bc_edit_form_{target_det_id}_{t_date_str}"):
+                        edited_entries = []
+                        for idx, e in enumerate(t_entries, 1):
+                            m_id = e["military_id"]
+                            rank = e["rank"]
+                            name = e["full_name"]
+                            spec = e.get("specialty", "")
+                            cur_status = e.get("status", "موجود")
+                            cur_note = e.get("notes", "")
+
+                            ecol1, ecol2, ecol3 = st.columns([4, 4, 3])
+                            with ecol1:
+                                st.markdown(f"""
+                                <div style="padding-top: 4px; line-height: 1.4;">
+                                    <b style="color: #0F172A; font-size: 14px;">{idx}. {rank} / {name}</b><br>
+                                    <span class="badge-mil-id">{m_id}</span> <span class="badge-specialty">{spec}</span>
+                                </div>
+                                """, unsafe_allow_html=True)
+
+                            with ecol2:
+                                s_opts = ["موجود", "مجاز", "مراجعة مرضية"]
+                                s_idx = s_opts.index(cur_status) if cur_status in s_opts else 0
+                                new_st = st.radio(
+                                    f"حالة {m_id}:",
+                                    options=s_opts,
+                                    index=s_idx,
+                                    key=f"bc_st_{m_id}_{t_date_str}",
+                                    horizontal=True,
+                                    label_visibility="collapsed"
+                                )
+
+                            with ecol3:
+                                new_nt = st.text_input(
+                                    f"ملاحظة {m_id}:",
+                                    value=cur_note or "",
+                                    key=f"bc_nt_{m_id}_{t_date_str}",
+                                    placeholder="ملاحظات / سبب...",
+                                    label_visibility="collapsed"
+                                )
+
+                            edited_entries.append({
+                                "military_id": m_id,
+                                "rank": rank,
+                                "full_name": name,
+                                "specialty": spec,
+                                "status": new_st,
+                                "notes": new_nt
+                            })
+                            st.markdown("<hr style='margin: 4px 0; border: none; border-top: 1px dashed #E2E8F0;'>", unsafe_allow_html=True)
+
+                        bc_notes_val = st.text_area(
+                            "📝 ملاحظات رئيس الفرع على هذا الكشف / سبب التعديل:",
+                            value=t_rc.get("notes") or "",
+                            key=f"bc_notes_area_{target_det_id}_{t_date_str}"
+                        )
+
+                        b_save_col, b_del_col = st.columns([2, 1])
+                        with b_save_col:
+                            save_mod_btn = st.form_submit_button("💾 حفظ وتأكيد التعديلات الاستثنائية (رئيس الفرع)", type="primary", use_container_width=True)
+                            if save_mod_btn:
+                                with st.spinner("جاري حفظ التعديل..."):
+                                    ok, msg = db.update_or_unlock_roll_call(
+                                        roll_call_id=t_rc["id"],
+                                        entries=edited_entries,
+                                        notes=bc_notes_val,
+                                        modified_by_rank="رئيس الفرع",
+                                        modified_by_name="تعديل قيادي معتمد"
+                                    )
+                                    if ok:
+                                        st.success(msg)
+                                        st.toast("✅ تم تحديث كشف الموجود الصباحي بنجاح!", icon="👑")
+                                        st.rerun()
+                                    else:
+                                        st.error(msg)
+
+                    # خيار حذف السجل لإعادة فتحه
+                    with st.expander("⚠️ خيارات إدارية متقدمة (إلغاء قفل السجل بالكامل)"):
+                        st.warning("سيؤدي حذف هذا السجل إلى إتاحته مجدداً لقائد المفرزة لإدخاله من جديد كأنه لم يُسجَّل.")
+                        if st.button("🗑️ حذف السجل وإعادة فتحه للإدخال من قبل قائد المفرزة", key=f"del_rc_btn_{t_rc['id']}", type="secondary"):
+                            ok, msg = db.delete_daily_roll_call(t_rc["id"])
+                            if ok:
+                                st.success(msg)
+                                st.toast("تم حذف السجل وإعادة فتحه.", icon="🔄")
+                                st.rerun()
+                            else:
+                                st.error(msg)
+
+                # إذا لم يكن مسجلاً بعد في هذا التاريخ:
+                else:
+                    st.warning(f"⚠️ لم يتم إدخال الموجود الصباحي لمفرزة ({target_det['hospital_name']}) في تاريخ ({t_date_str}) بعد.")
+                    st.info("💡 يمكنك كرئيس فرع إدخال واعتماد الموجود الصباحي نيابة عن المفرزة إذا لزم الأمر:")
+
+                    tech_df = db.get_technicians_by_detachment_df(target_det_id, apply_custom_columns=False)
+                    if not tech_df.empty:
+                        with st.form(key=f"bc_new_form_{target_det_id}_{t_date_str}"):
+                            new_entries_bc = []
+                            for idx, (_, r) in enumerate(tech_df.iterrows(), 1):
+                                m_id = str(r["الرقم العسكري"])
+                                rank = str(r["الرتبة"])
+                                name = str(r["الاسم الرباعي"])
+                                spec = str(r["الصنف"])
+
+                                ecol1, ecol2, ecol3 = st.columns([3, 3, 2])
+                                with ecol1:
+                                    st.markdown(f"<b>{idx}. {rank} / {name}</b><br><span class='badge-mil-id'>{m_id}</span> | <span class='badge-specialty'>{spec}</span>", unsafe_allow_html=True)
+                                with ecol2:
+                                    nst = st.radio(f"حالة {m_id}:", options=["موجود", "مجاز", "مراجعة مرضية"], index=0, key=f"bc_new_st_{m_id}", horizontal=True, label_visibility="collapsed")
+                                with ecol3:
+                                    nnt = st.text_input(f"ملاحظة {m_id}:", value="", key=f"bc_new_nt_{m_id}", placeholder="ملاحظات...", label_visibility="collapsed")
+
+                                new_entries_bc.append({
+                                    "military_id": m_id,
+                                    "rank": rank,
+                                    "full_name": name,
+                                    "specialty": spec,
+                                    "status": nst,
+                                    "notes": nnt
+                                })
+
+                            bc_notes_new = st.text_area("ملاحظات رئيس الفرع:", key=f"bc_notes_new_{target_det_id}")
+                            if st.form_submit_button("💾 حفظ واعتماد كشف الموجود (بواسطة رئيس الفرع)", type="primary", use_container_width=True):
+                                ok, msg = db.save_daily_roll_call(
+                                    detachment_id=target_det_id,
+                                    roll_call_date=t_date_str,
+                                    entries=new_entries_bc,
+                                    saved_by_rank="رئيس الفرع",
+                                    saved_by_name="إدخال معتمد من الإدارة",
+                                    notes=bc_notes_new,
+                                    is_branch_chief=True
+                                )
+                                if ok:
+                                    st.success(msg)
+                                    st.toast("✅ تم حفظ الموجود بنجاح!", icon="👑")
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
+                    else:
+                        st.warning("لا يوجد فنيين مسجلين على مرتب هذه المفرزة.")
+
+        # --- تبويب 3: الأرشيف الشامل والبحث المتقدم ---
+        with bc_tab3:
+            st.markdown("#### 🗓️ الأرشيف التاريخي الشامل للموجود الصباحي")
+            st.caption("بحث وفلترة في كافة سجلات الموجود الصباحي السابقة لكافة المفارز بالمملكة وتصديرها:")
+
+            fcol1, fcol2, fcol3 = st.columns(3)
+            with fcol1:
+                all_hosp_filter = ["(كافة المفارز)"] + [f"{d['hospital_name']} ({d['governorate']})" for d in all_detachments_list]
+                sel_hosp_filter = st.selectbox("تصفية حسب المفرزة:", options=all_hosp_filter, key="bc_arch_hosp")
+                filter_det_id = None
+                if sel_hosp_filter != "(كافة المفارز)":
+                    filter_det_id = next(d['id'] for d in all_detachments_list if f"{d['hospital_name']} ({d['governorate']})" == sel_hosp_filter)
+
+            with fcol2:
+                arch_start = st.date_input("من تاريخ:", value=date.today().replace(day=1), key="bc_arch_start")
+            with fcol3:
+                arch_end = st.date_input("إلى تاريخ:", value=date.today(), key="bc_arch_end")
+
+            all_history_df = db.get_roll_call_history_df(detachment_id=filter_det_id, start_date=arch_start, end_date=arch_end)
+
+            if not all_history_df.empty:
+                disp_cols = ["رقم السجل", "التاريخ", "المستشفى / المفرزة", "المحافظة", "القوة الإجمالية", "الموجود", "المجاز", "مراجعة مرضية", "نسبة الجاهزية %", "القائم بالحفظ", "تاريخ ووقت الحفظ", "ملاحظات الموجود"]
+                st.markdown(styles.render_rtl_table(all_history_df[disp_cols]), unsafe_allow_html=True)
+
+                # تصدير الأرشيف المفلتر
+                arch_excel = export_to_excel(all_history_df[disp_cols], sheet_name="أرشيف_الموجود_الصباحي")
+                st.download_button(
+                    label="📥 تصدير السجلات المفلترة إلى Excel",
+                    data=arch_excel,
+                    file_name=f"أرشيف_الموجود_الصباحي_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_bc_arch_all",
+                    use_container_width=True
+                )
+            else:
+                st.info("ℹ️ لا توجد سجلات موجود صباحي تطابق معايير البحث المحددة.")
+
+
+# ==============================================================================
+# 3. كشف المفارز والمستشفيات (Detachments View)
+# ==============================================================================
+elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 كشف مفرزتي وبيانات المرتب"]:
+    if is_branch_chief:
+        styles.render_page_header(
+            "كشف وجاهزية المفارز والمستشفيات",
+            "عرض تفاصيل المفرزة، تحديث وحفظ النواقص والاحتياجات الفورية، وإدارة كشف مرتبات المستشفى",
+            "🏥"
+        )
+    else:
+        styles.render_page_header(
+            f"كشف وبيانات مرتبات {current_user.get('hospital_name', 'مفرزتي')}",
+            "عرض تفاصيل المفرزة، تحديث وحفظ النواقص والاحتياجات الفورية، وكشف مرتبات الفنيين التابعين للمفرزة",
+            "🏥"
+        )
 
     detachments = db.get_detachments_list()
 
     if not detachments:
         st.warning("⚠️ لا توجد مفارز مسجلة في قاعدة البيانات حالياً.")
     else:
-        # قائمة خيارات المستشفيات
-        detachment_options = {
-            f"{d['hospital_name']} ({d['governorate']}) - [{d['technicians_count']} فني]": d['id']
-            for d in detachments
-        }
+        if is_branch_chief:
+            # قائمة خيارات المستشفيات لرئيس الفرع
+            detachment_options = {
+                f"{d['hospital_name']} ({d['governorate']}) - [{d['technicians_count']} فني]": d['id']
+                for d in detachments
+            }
 
-        selected_label = st.selectbox(
-            "🏢 اختر المستشفى العسكري / المفرزة لعرض التفاصيل:",
-            options=list(detachment_options.keys())
-        )
+            selected_label = st.selectbox(
+                "🏢 اختر المستشفى العسكري / المفرزة لعرض التفاصيل:",
+                options=list(detachment_options.keys())
+            )
 
-        selected_id = detachment_options[selected_label]
+            selected_id = detachment_options[selected_label]
+        else:
+            # لقائد المفرزة: مفرزته المسندة حصراً
+            selected_id = active_detachment_id
+            if not selected_id:
+                st.error("⚠️ لم يتم تحديد المفرزة المسندة لحسابك. يرجى مراجعة رئيس الفرع.")
+                st.stop()
+
         selected_detachment = db.get_detachment_by_id(selected_id)
 
         if selected_detachment:
@@ -313,6 +1010,108 @@ elif menu_choice == "🏥 كشف المفارز والمستشفيات":
                     key=f"dl_tpl_{selected_id}",
                     use_container_width=True
                 )
+
+            st.markdown("---")
+
+            # قسم إدارة وتعديل الفنيين وإضافة الملاحظات (متاح لقائد المفرزة ورئيس الفرع)
+            t_col1, t_col2 = st.columns(2)
+            
+            with t_col1:
+                with st.expander("✏️ تعديل بيانات فني وإضافة الملاحظات والتقييم الفني", expanded=False):
+                    if not tech_df.empty:
+                        tech_list = db.get_all_technicians_df(apply_custom_columns=False)
+                        det_techs = tech_list[tech_list["detachment_id"] == selected_id]
+                        
+                        if not det_techs.empty:
+                            tech_select_map = {
+                                f"{t['الرتبة']} / {t['الاسم الرباعي']} (الرقم: {t['الرقم العسكري']})": t['الرقم العسكري']
+                                for _, t in det_techs.iterrows()
+                            }
+                            selected_t_label = st.selectbox("اختر الفني للتعديل أو إضافة الملاحظات والتقييم:", options=list(tech_select_map.keys()), key=f"sel_edit_tech_{selected_id}")
+                            target_mil_id = tech_select_map[selected_t_label]
+                            target_tech = db.get_technician_by_id(target_mil_id)
+                            
+                            if target_tech:
+                                with st.form(key=f"form_edit_tech_{selected_id}_{target_mil_id}"):
+                                    ef_c1, ef_c2 = st.columns(2)
+                                    with ef_c1:
+                                        st.text_input("الرقم العسكري (ثابت):", value=target_tech['military_id'], disabled=True)
+                                        t_name = st.text_input("الاسم الرباعي الكامل *:", value=target_tech['full_name'])
+                                        t_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(target_tech['rank']) if target_tech['rank'] in MILITARY_RANKS else 0)
+                                        t_spec = st.selectbox("الصنف / التخصص الفني *:", options=MILITARY_CATEGORIES, index=MILITARY_CATEGORIES.index(target_tech['specialty']) if target_tech['specialty'] in MILITARY_CATEGORIES else 0)
+                                    with ef_c2:
+                                        t_job = st.text_input("المهنة / الواجب الحالي بالمفرزة:", value=target_tech['current_job'] or '')
+                                        t_res = st.selectbox("مكان السكن:", options=GOVERNORATES, index=GOVERNORATES.index(target_tech['residence']) if target_tech['residence'] in GOVERNORATES else 0)
+                                        t_phone = st.text_input("رقم هاتف الفني للتواصل:", value=target_tech['phone_number'] or '')
+                                        try:
+                                            parsed_jdate = datetime.strptime(target_tech['join_date'], "%Y-%m-%d").date() if target_tech['join_date'] else date.today()
+                                        except Exception:
+                                            parsed_jdate = date.today()
+                                        t_jdate = st.date_input("تاريخ الالتحاق بالمفرزة:", value=parsed_jdate)
+                                        
+                                    t_notes = st.text_area("📋 الملاحظات والتقييم الفني وسلوك الفني:", value=target_tech['evaluation_and_notes'] or '', placeholder="أدخل تقييم قائد المفرزة، مستوى الانضباط، الكفاءة الفنية، أو أي ملاحظات هامة...")
+                                    
+                                    save_tech_btn = st.form_submit_button("💾 حفظ تعديلات الفني والملاحظات والتقييم", type="primary", use_container_width=True)
+                                    if save_tech_btn:
+                                        ok_u, err_u = db.update_technician(
+                                            target_mil_id,
+                                            t_rank,
+                                            t_name.strip(),
+                                            t_spec,
+                                            t_job.strip(),
+                                            t_res,
+                                            selected_id,
+                                            str(t_jdate),
+                                            t_phone.strip(),
+                                            t_notes.strip()
+                                        )
+                                        if ok_u:
+                                            st.toast("✅ تم حفظ وتحديث بيانات الفني وملاحظاته بنجاح!", icon="💾")
+                                            st.success("✅ تم تحديث بيانات الفني بنجاح!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"❌ تعذر التحديث: {err_u}")
+
+            with t_col2:
+                with st.expander(f"➕ إضافة وتسجيل فني جديد بمفرزة ({selected_detachment['hospital_name']})", expanded=False):
+                    with st.form(key=f"form_add_tech_det_{selected_id}", clear_on_submit=True):
+                        af_c1, af_c2 = st.columns(2)
+                        with af_c1:
+                            new_m_id = st.text_input("الرقم العسكري *:")
+                            new_m_name = st.text_input("الاسم الرباعي الكامل *:")
+                            new_m_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=len(MILITARY_RANKS)-3, key=f"add_rnk_{selected_id}")
+                            new_m_spec = st.selectbox("الصنف الفني *:", options=MILITARY_CATEGORIES, key=f"add_spc_{selected_id}")
+                        with af_c2:
+                            new_m_job = st.text_input("المهنة الحالية بالمفرزة:", key=f"add_job_{selected_id}")
+                            new_m_res = st.selectbox("مكان السكن:", options=GOVERNORATES, key=f"add_res_{selected_id}")
+                            new_m_ph = st.text_input("رقم الهاتف:", key=f"add_ph_{selected_id}")
+                            new_m_jd = st.date_input("تاريخ الالتحاق بالمفرزة:", value=date.today(), key=f"add_jd_{selected_id}")
+                            
+                        new_m_notes = st.text_area("الملاحظات والتقييم الأولي:", key=f"add_nt_{selected_id}")
+                        
+                        add_tech_btn = st.form_submit_button("💾 إضافة الفني إلى مرتب المفرزة", type="primary", use_container_width=True)
+                        if add_tech_btn:
+                            if not new_m_id.strip() or not new_m_name.strip():
+                                st.error("يرجى إدخال الرقم العسكري والاسم الرباعي (*).")
+                            else:
+                                ok_a, err_a = db.add_technician(
+                                    new_m_id.strip(),
+                                    new_m_rank,
+                                    new_m_name.strip(),
+                                    new_m_spec,
+                                    new_m_job.strip(),
+                                    new_m_res,
+                                    selected_id,
+                                    str(new_m_jd),
+                                    new_m_ph.strip(),
+                                    new_m_notes.strip()
+                                )
+                                if ok_a:
+                                    st.toast("✅ تم تسجيل الفني بنجاح!", icon="🎉")
+                                    st.success("✅ تم تسجيل وإلحاق الفني بالمفرزة بنجاح!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ {err_a}")
 
             # 2.4 قسم استيراد كشف المرتبات من ملف Excel
             with st.expander(f"📤 استيراد كشف فنيين من ملف Excel لمفرزة ({selected_detachment['hospital_name']})", expanded=False):
@@ -871,12 +1670,13 @@ elif menu_choice == "⚙️ الإعدادات وتخصيص المنظومة":
         "⚙️"
     )
 
-    set_tab1, set_tab2, set_tab3, set_tab4, set_tab5 = st.tabs([
+    set_tab1, set_tab2, set_tab3, set_tab4, set_tab5, set_tab6 = st.tabs([
         "🏢 هوية البرنامج ومسمياته",
         "🏥 إدارة وتعديل أسماء المستشفيات",
         "🏷️ تخصيص مسميات الأزرار",
         "📊 ترتيب وظهور أعمدة الجداول (يمين / يسار)",
-        "💾 النسخ الاحتياطي واستعادة قاعدة البيانات"
+        "💾 النسخ الاحتياطي واستعادة قاعدة البيانات",
+        "👥 إدارة المستخدمين والصلاحيات"
     ])
 
     # --------------------------------------------------------------------------
@@ -1119,3 +1919,214 @@ elif menu_choice == "⚙️ الإعدادات وتخصيص المنظومة":
                             st.rerun()
                         else:
                             st.error(msg)
+
+    # --------------------------------------------------------------------------
+    # تبويب 6: إدارة حسابات المستخدمين وصلاحيات المفارز
+    # --------------------------------------------------------------------------
+    with set_tab6:
+        st.markdown("#### 👥 إدارة حسابات المستخدمين ومستويات الصلاحية")
+        st.caption("التحكم في حسابات الدخول، تعيين قادة المفارز بالمستشفيات العسكرية، وتحديد نطاق الصلاحيات لكل مستخدم.")
+
+        # بطاقة توضيحية لنظام الصلاحيات
+        st.markdown("""
+        <div style="background: rgba(15, 23, 42, 0.04); border-right: 4px solid #0284C7; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13.5px; color: #334155; line-height: 1.8;">
+            👑 <b>رئيس الفرع (المقدم المهندس رامي سبع العيش):</b> صلاحية قيادية وإدارية شاملة وكاملة (لوحة المؤشرات، كشف وتعديل كافة المفارز والمستشفيات، إدارة القوى البشرية وحركات النقل، فك قفل وتعديل الموجود للأيام السابقة، وإدارة الحسابات والإعدادات).<br>
+            🏥 <b>قادة المفارز بالمستشفيات (مثل المقدم المهندسة منار - مفرزة مستشفى الأمير علي بالكرك):</b> صلاحية مقيدة حصرياً بالمستشفى المسند، تسجيل واعتماد الموجود الصباحي لمفرزته فقط (مع قفل التعديل فور الحفظ)، واستعراض وتحديث بيانات مفرزته ونواقصها.
+        </div>
+        """, unsafe_allow_html=True)
+
+        users_df = db.get_all_users_df()
+        all_dets = db.get_detachments_list()
+        det_choice_map = {f"{d['hospital_name']} ({d['governorate']})": d['id'] for d in all_dets}
+
+        # 1. كشف المستخدمين الحاليين في المنظومة
+        st.markdown(f"##### 📋 قائمة المستخدمين المسجلين في المنظومة ({len(users_df)} مستخدم):")
+
+        if not users_df.empty:
+            users_table_rows = []
+            for idx, u in enumerate(users_df.to_dict(orient="records"), 1):
+                role_val = u.get("role", "قائد مفرزة")
+                if role_val == "رئيس الفرع":
+                    role_badge = '<span style="background: #0284C7; color: #FFFFFF; padding: 3px 10px; border-radius: 12px; font-size: 11.5px; font-weight: 700;">👑 رئيس الفرع</span>'
+                else:
+                    role_badge = '<span style="background: #15803D; color: #FFFFFF; padding: 3px 10px; border-radius: 12px; font-size: 11.5px; font-weight: 700;">🏥 قائد مفرزة</span>'
+
+                status_badge = '<span style="color: #16A34A; font-weight: 700;">✅ نشط</span>' if u.get("is_active") == 1 else '<span style="color: #DC2626; font-weight: 700;">⛔ معطل</span>'
+                raw_hosp = u.get("hospital_name")
+                if pd.isna(raw_hosp) or not raw_hosp or str(raw_hosp).lower() == 'nan':
+                    hosp_name_val = "🛡️ إشراف شامل لكافة المفارز" if role_val == "رئيس الفرع" else "غير مسند"
+                else:
+                    hosp_name_val = str(raw_hosp)
+
+                last_l = u.get('last_login')
+                last_login_str = str(last_l) if last_l and not pd.isna(last_l) and str(last_l).lower() != 'nan' else 'لم يسجل بعد'
+
+                users_table_rows.append(f'<tr><td style="text-align: center; font-weight: 700;">{idx}</td><td><span class="badge-mil-id">{u["username"]}</span></td><td><span class="badge-rank">{u["rank"]}</span></td><td style="font-weight: 800; color: #0F172A;">{u["full_name"]}</td><td style="text-align: center;">{role_badge}</td><td><b style="color: #0369A1;">{hosp_name_val}</b></td><td style="text-align: center;">{status_badge}</td><td style="font-size: 12px; color: #64748B;">{last_login_str}</td></tr>')
+
+            users_html = f'<div class="rtl-table-wrapper"><table class="rtl-table" dir="rtl"><thead><tr><th style="text-align: center; width: 40px;">م</th><th>رقم التعريف / اسم الدخول</th><th>الرتبة</th><th>الاسم الرباعي الكامل</th><th style="text-align: center;">نوع الصلاحية</th><th>المستشفى / المفرزة المسندة</th><th style="text-align: center;">الحالة</th><th>آخر تسجيل دخول</th></tr></thead><tbody>{"".join(users_table_rows)}</tbody></table></div>'
+            st.markdown(users_html, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # أقسام العمليات على المستخدمين (إضافة، تعديل، تغيير كلمة المرور، حذف)
+        u_tab1, u_tab2, u_tab3, u_tab4 = st.tabs([
+            "➕ إضافة مستخدم / قائد جديد",
+            "✏️ تعديل بيانات وصلاحيات مستخدم",
+            "🔑 تغيير كلمة المرور لمستخدم",
+            "🗑️ حذف أو إلغاء تفعيل حساب"
+        ])
+
+        # --- أ. إضافة مستخدم جديد ---
+        with u_tab1:
+            st.markdown("##### ➕ إنشاء حساب مستخدم أو قائد مفرزة جديد")
+            with st.form(key="create_user_form", clear_on_submit=True):
+                cu1, cu2 = st.columns(2)
+                with cu1:
+                    new_u_username = st.text_input("👤 رقم التعريف / الرقم العسكري / اسم المستخدم *:", placeholder="مثال: 10008 أو cmd_aqaba")
+                    new_u_name = st.text_input("📝 الاسم الكامل رباعياً *:", placeholder="مثال: أحمد محمد علي العبادي")
+                    new_u_rank = st.selectbox("🎖️ الرتبة العسكرية *:", options=MILITARY_RANKS, index=0)
+                with cu2:
+                    new_u_role = st.selectbox("🛡️ نوع الصلاحية / الدور *:", options=["قائد مفرزة", "رئيس الفرع"], index=0)
+                    new_u_det_id = None
+                    if new_u_role == "قائد مفرزة":
+                        selected_det_label = st.selectbox("🏥 المستشفى العسكري المسند إليه:", options=list(det_choice_map.keys()))
+                        new_u_det_id = det_choice_map.get(selected_det_label)
+                    else:
+                        st.info("ℹ️ رئيس الفرع يمتلك صلاحية الإشراف والتعديل على كافة المفارز تلقائياً.")
+
+                    new_u_pwd = st.text_input("🔑 كلمة المرور *:", type="password", placeholder="أدخل كلمة المرور...")
+                    new_u_pwd_confirm = st.text_input("🔑 تأكيد كلمة المرور *:", type="password", placeholder="أعد إدخال كلمة المرور...")
+
+                create_user_btn = st.form_submit_button("🚀 إنشاء وتفعيل الحساب", type="primary", use_container_width=True)
+                if create_user_btn:
+                    if not new_u_username.strip() or not new_u_name.strip() or not new_u_pwd:
+                        st.error("يرجى ملء جميع الحقول المطلوبة (*).")
+                    elif new_u_pwd != new_u_pwd_confirm:
+                        st.error("كلمتا المرور غير متطابقتين.")
+                    else:
+                        ok_create, msg_create = db.create_user(
+                            username=new_u_username.strip(),
+                            password=new_u_pwd,
+                            full_name=new_u_name.strip(),
+                            rank=new_u_rank,
+                            role=new_u_role,
+                            detachment_id=new_u_det_id
+                        )
+                        if ok_create:
+                            st.toast(msg_create, icon="✅")
+                            st.success(msg_create)
+                            st.rerun()
+                        else:
+                            st.error(msg_create)
+
+        # --- ب. تعديل بيانات مستخدم ---
+        with u_tab2:
+            st.markdown("##### ✏️ تعديل بيانات المستخدم والصلاحية والمستشفى المسند")
+            if not users_df.empty:
+                user_select_dict = {f"{u['rank']} / {u['full_name']} ({u['username']}) - [{u['role']}]": u['id'] for u in users_df.to_dict(orient="records")}
+                selected_user_label = st.selectbox("اختر المستخدم المراد تعديل بياناته:", options=list(user_select_dict.keys()), key="sel_user_edit")
+                target_user_id = user_select_dict[selected_user_label]
+                target_user_obj = db.get_user_by_id(target_user_id)
+
+                if target_user_obj:
+                    with st.form(key=f"edit_user_form_{target_user_id}"):
+                        eu1, eu2 = st.columns(2)
+                        with eu1:
+                            st.text_input("رقم التعريف / اسم المستخدم (ثابت):", value=target_user_obj['username'], disabled=True)
+                            ed_name = st.text_input("الاسم الكامل:", value=target_user_obj['full_name'])
+                            ed_rank = st.selectbox(
+                                "الرتبة:",
+                                options=MILITARY_RANKS,
+                                index=MILITARY_RANKS.index(target_user_obj['rank']) if target_user_obj['rank'] in MILITARY_RANKS else 0
+                            )
+                        with eu2:
+                            ed_role = st.selectbox(
+                                "نوع الصلاحية:",
+                                options=["قائد مفرزة", "رئيس الفرع"],
+                                index=0 if target_user_obj['role'] == "قائد مفرزة" else 1
+                            )
+                            ed_det_id = None
+                            if ed_role == "قائد مفرزة":
+                                current_det_idx = 0
+                                det_keys = list(det_choice_map.keys())
+                                if target_user_obj.get("detachment_id"):
+                                    for i, k in enumerate(det_keys):
+                                        if det_choice_map[k] == target_user_obj["detachment_id"]:
+                                            current_det_idx = i
+                                            break
+                                ed_det_label = st.selectbox("المستشفى المسند:", options=det_keys, index=current_det_idx)
+                                ed_det_id = det_choice_map[ed_det_label]
+
+                            ed_active = st.checkbox("الحساب نشط ومفعل", value=(target_user_obj.get('is_active', 1) == 1))
+
+                        save_user_edits_btn = st.form_submit_button("💾 حفظ تعديلات المستخدم والصلاحيات", type="primary", use_container_width=True)
+                        if save_user_edits_btn:
+                            ok_upd, msg_upd = db.update_user(
+                                user_id=target_user_id,
+                                full_name=ed_name.strip(),
+                                rank=ed_rank,
+                                role=ed_role,
+                                detachment_id=ed_det_id,
+                                is_active=1 if ed_active else 0
+                            )
+                            if ok_upd:
+                                st.toast(msg_upd, icon="✅")
+                                st.success(msg_upd)
+                                st.rerun()
+                            else:
+                                st.error(msg_upd)
+
+        # --- ج. تغيير كلمة المرور ---
+        with u_tab3:
+            st.markdown("##### 🔑 إعادة ضبط / تغيير كلمة المرور")
+            if not users_df.empty:
+                pwd_user_dict = {f"{u['rank']} / {u['full_name']} ({u['username']})": u['id'] for u in users_df.to_dict(orient="records")}
+                selected_pwd_user = st.selectbox("اختر المستخدم لإعادة ضبط كلمة المرور:", options=list(pwd_user_dict.keys()), key="sel_user_pwd")
+                target_pwd_uid = pwd_user_dict[selected_pwd_user]
+
+                with st.form(key=f"reset_pwd_form_{target_pwd_uid}"):
+                    cp1, cp2 = st.columns(2)
+                    with cp1:
+                        new_pass_val = st.text_input("كلمة المرور الجديدة *:", type="password", placeholder="أدخل كلمة المرور الجديدة...")
+                    with cp2:
+                        new_pass_confirm = st.text_input("تأكيد كلمة المرور الجديدة *:", type="password", placeholder="أعد إدخال كلمة المرور...")
+
+                    reset_pass_btn = st.form_submit_button("🔑 تحديث كلمة المرور فورياً", type="primary", use_container_width=True)
+                    if reset_pass_btn:
+                        if not new_pass_val or len(new_pass_val.strip()) < 3:
+                            st.error("يجب إدخال كلمة مرور مكونة من 3 خانات على الأقل.")
+                        elif new_pass_val != new_pass_confirm:
+                            st.error("كلمتا المرور غير متطابقتين.")
+                        else:
+                            ok_pwd, msg_pwd = db.change_user_password(target_pwd_uid, new_pass_val)
+                            if ok_pwd:
+                                st.toast(msg_pwd, icon="🔑")
+                                st.success(msg_pwd)
+                                st.rerun()
+                            else:
+                                st.error(msg_pwd)
+
+        # --- د. حذف مستخدم ---
+        with u_tab4:
+            st.markdown("##### 🗑️ حذف حساب مستخدم من المنظومة")
+            if not users_df.empty:
+                # تصفية الحسابات لحماية الحساب الرئيسي
+                del_user_dict = {f"{u['rank']} / {u['full_name']} ({u['username']})": u['id'] for u in users_df.to_dict(orient="records") if u['username'] not in ['admin', '10001']}
+                
+                if not del_user_dict:
+                    st.info("لا توجد حسابات فرعية إضافية قابلة للحذف (الحساب الرئيسي لرئيس الفرع محمي).")
+                else:
+                    selected_del_user = st.selectbox("اختر المستخدم المراد حذفه نهائياً:", options=list(del_user_dict.keys()), key="sel_user_del")
+                    target_del_uid = del_user_dict[selected_del_user]
+
+                    st.warning("⚠️ تنبيه: سيؤدي حذف المستخدم إلى إلغاء صلاحية دخوله نهائياً إلى المنظومة.")
+                    if st.checkbox("تأكيد الرغبة في حذف هذا الحساب نهائياً", key=f"chk_del_u_{target_del_uid}"):
+                        if st.button("🗑️ تأكيد الحذف النهائي", type="primary", key=f"btn_confirm_del_u_{target_del_uid}"):
+                            ok_del, msg_del = db.delete_user(target_del_uid)
+                            if ok_del:
+                                st.toast(msg_del, icon="🗑️")
+                                st.success(msg_del)
+                                st.rerun()
+                            else:
+                                st.error(msg_del)
+

@@ -12,12 +12,9 @@ def apply_custom_styles():
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap');
 
-    /* تطبيق الخط والاتجاه العام على الصفحة وكافة الحاويات */
-    *, *::before, *::after {
-        font-family: 'Cairo', sans-serif !important;
-    }
-
-    html, body, [class*="css"], .stApp, 
+    /* تطبيق الخط والاتجاه العام على كافة النصوص والعناصر ما عدا الأيقونات */
+    html, body, p, div, span, h1, h2, h3, h4, h5, h6, input, textarea, select, button, label, a, li, ul, ol, table, th, td, caption, b, strong, em,
+    [class*="css"], .stApp, 
     [data-testid="stAppViewContainer"],
     [data-testid="stAppViewBlockContainer"],
     [data-testid="stMain"],
@@ -27,11 +24,54 @@ def apply_custom_styles():
     [data-testid="stElementContainer"],
     [data-testid="stMarkdownContainer"],
     [data-testid="stForm"],
-    [data-testid="stExpander"],
     div[data-baseweb] {
         direction: rtl !important;
         text-align: right !important;
-        font-family: 'Cairo', sans-serif !important;
+        font-family: 'Cairo', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    }
+
+    /* حماية خط الأيقونات من التداخل ومنع تحولها لنصوص مشوهة مثل keyboard_ar */
+    span[data-testid="stIconMaterial"], 
+    [data-testid="stExpanderToggleIcon"],
+    [data-testid="stExpanderToggleIcon"] *,
+    .material-symbols-rounded,
+    .material-symbols-outlined,
+    .material-icons,
+    [data-baseweb="icon"],
+    [data-baseweb="icon"] *,
+    summary svg,
+    summary span {
+        font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+        font-feature-settings: 'liga' 1 !important;
+        -webkit-font-feature-settings: 'liga' 1 !important;
+        letter-spacing: normal !important;
+        text-transform: none !important;
+        white-space: nowrap !important;
+        word-wrap: normal !important;
+        direction: ltr !important;
+        unicode-bidi: isolate !important;
+    }
+
+    /* تحسين شكل رأس الـ Expander */
+    [data-testid="stExpander"] details {
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+        margin-bottom: 12px !important;
+    }
+
+    [data-testid="stExpander"] summary {
+        direction: rtl !important;
+        text-align: right !important;
+        padding: 12px 16px !important;
+        font-weight: 700 !important;
+        color: #0F172A !important;
+    }
+
+    [data-testid="stExpander"] summary:hover {
+        background-color: #F8FAFC !important;
+        color: #0369A1 !important;
     }
 
     /* قلب اتجاه الأعمدة الأفقية st.columns لتبدأ من اليمين إلى اليسار تماماً */
@@ -55,11 +95,62 @@ def apply_custom_styles():
         border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
 
-    [data-testid="stSidebar"] * {
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] div,
+    [data-testid="stSidebar"] label {
         color: #F8FAFC !important;
-        font-family: 'Cairo', sans-serif !important;
         direction: rtl !important;
         text-align: right !important;
+    }
+
+    /* إصلاح تباين وألوان أزرار الشريط الجانبي (مثل زر تسجيل الخروج) */
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stSidebar"] button,
+    [data-testid="stSidebar"] [data-testid*="baseButton"],
+    [data-testid="stSidebar"] [data-testid*="BaseButton"],
+    [data-testid="stSidebar"] button[kind="secondary"],
+    [data-testid="stSidebar"] button[kind="primary"] {
+        background-color: #1E293B !important;
+        background: linear-gradient(135deg, #1E293B 0%, #334155 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        font-family: 'Cairo', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
+        border-radius: 8px !important;
+        padding: 8px 16px !important;
+        min-height: 42px !important;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25) !important;
+        transition: all 0.2s ease !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button p,
+    [data-testid="stSidebar"] .stButton > button span,
+    [data-testid="stSidebar"] .stButton > button div,
+    [data-testid="stSidebar"] button p,
+    [data-testid="stSidebar"] button span,
+    [data-testid="stSidebar"] [data-testid*="baseButton"] p,
+    [data-testid="stSidebar"] [data-testid*="BaseButton"] p,
+    [data-testid="stSidebar"] button * {
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
+        font-family: 'Cairo', sans-serif !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover,
+    [data-testid="stSidebar"] button:hover,
+    [data-testid="stSidebar"] [data-testid*="baseButton"]:hover,
+    [data-testid="stSidebar"] [data-testid*="BaseButton"]:hover {
+        background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%) !important;
+        border-color: #EF4444 !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4) !important;
+        transform: translateY(-1px) !important;
     }
 
     [data-testid="stSidebar"] .stRadio label {
@@ -280,7 +371,7 @@ def apply_custom_styles():
         font-weight: 700 !important;
     }
 
-    /* الأزرار */
+    /* الأزرار في الواجهة الرئيسية */
     .stButton button {
         font-family: 'Cairo', sans-serif !important;
         font-weight: 700 !important;
@@ -302,6 +393,8 @@ def apply_custom_styles():
 
     .stButton button[kind="secondary"] {
         border-color: #CBD5E1 !important;
+        background: #FFFFFF !important;
+        color: #0F172A !important;
     }
 
     /* علامات التبويب Tabs */
@@ -363,6 +456,7 @@ def apply_custom_styles():
 
     table.rtl-table {
         width: 100% !important;
+        min-width: 800px !important;
         border-collapse: collapse !important;
         direction: rtl !important;
         text-align: right !important;
@@ -381,7 +475,7 @@ def apply_custom_styles():
         background-color: #0F172A !important;
         color: #F8FAFC !important;
         font-weight: 800 !important;
-        padding: 13px 14px !important;
+        padding: 12px 14px !important;
         text-align: right !important;
         direction: rtl !important;
         border-bottom: 2px solid #334155 !important;
@@ -390,7 +484,7 @@ def apply_custom_styles():
     }
 
     table.rtl-table td {
-        padding: 11px 14px !important;
+        padding: 10px 14px !important;
         text-align: right !important;
         direction: rtl !important;
         color: #1E293B !important;
@@ -462,23 +556,80 @@ def apply_custom_styles():
         font-weight: 600;
     }
 
-    /* بطاقة الهوية والبيانات العسكرية الشاملة للفني */
+    /* شارات حالات الموجود الصباحي (حاضر / مجاز / مراجعة مرضية) */
+    .badge-present {
+        display: inline-block;
+        background: #DCFCE7;
+        color: #166534;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        border: 1px solid #86EFAC;
+    }
+
+    .badge-leave {
+        display: inline-block;
+        background: #FEF3C7;
+        color: #92400E;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        border: 1px solid #FDE68A;
+    }
+
+    .badge-sick {
+        display: inline-block;
+        background: #FEE2E2;
+        color: #991B1B;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        border: 1px solid #FCA5A5;
+    }
+
+    .badge-locked {
+        display: inline-block;
+        background: #0F172A;
+        color: #F8FAFC;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        border: 1px solid #334155;
+    }
+
+    .rollcall-banner {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+        color: #F8FAFC;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        direction: rtl !important;
+    }
+
+    /* بطاقة الهوية العسكرية */
     .military-id-card {
         background: #FFFFFF;
         border: 2px solid #0F172A;
-        border-radius: 14px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-        margin: 16px 0 24px 0;
+        border-radius: 16px;
         overflow: hidden;
+        box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.15);
+        margin: 20px 0;
         direction: rtl !important;
         text-align: right !important;
-        font-family: 'Cairo', sans-serif !important;
     }
 
     .id-card-header {
         background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
         color: #F8FAFC;
-        padding: 14px 20px;
+        padding: 16px 24px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -486,69 +637,61 @@ def apply_custom_styles():
     }
 
     .id-card-title {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 800;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.5px;
     }
 
     .id-card-badge {
-        font-size: 12.5px;
-        color: #94A3B8;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
         font-weight: 600;
     }
 
     .id-card-body {
-        padding: 18px 20px;
-        background: #F8FAFC;
+        padding: 24px;
+        background: #FAFAFA;
     }
 
     .id-card-hero {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: #FFFFFF;
-        padding: 12px 18px;
-        border-radius: 10px;
-        border: 1px solid #E2E8F0;
-        margin-bottom: 14px;
+        padding-bottom: 16px;
+        border-bottom: 1px dashed #CBD5E1;
+        margin-bottom: 20px;
     }
 
     .id-card-name {
-        font-size: 19px;
-        font-weight: 800;
+        font-size: 22px;
+        font-weight: 900;
         color: #0F172A;
     }
 
     .id-card-mil-badge {
-        background: #E0F2FE;
-        color: #0369A1;
+        font-size: 16px;
         font-weight: 800;
-        font-size: 14.5px;
-        padding: 4px 12px;
+        color: #0369A1;
+        background: #E0F2FE;
+        padding: 6px 16px;
         border-radius: 8px;
         border: 1px solid #BAE6FD;
-        font-family: monospace, sans-serif !important;
     }
 
     .id-card-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-        gap: 10px;
-        margin-bottom: 12px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
     }
 
     .id-grid-item {
         background: #FFFFFF;
-        padding: 10px 14px;
-        border-radius: 8px;
         border: 1px solid #E2E8F0;
-        font-size: 13.5px;
-        color: #334155;
-    }
-
-    .id-grid-item b {
-        color: #0F172A;
-        margin-left: 4px;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 14px;
     }
 
     .id-card-notes {
@@ -560,15 +703,26 @@ def apply_custom_styles():
         color: #92400E;
         margin-top: 10px;
     }
+
+    .user-profile-badge {
+        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        padding: 12px 14px;
+        color: #F8FAFC;
+        margin-bottom: 14px;
+        direction: rtl !important;
+        text-align: right !important;
+    }
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
 
-def render_sidebar_header(title="شعبة الصيانة والتشغيل", subtitle="إدارة مفارز المستشفيات العسكرية"):
+def render_sidebar_header(title="شعبة صيانة المستشفيات", subtitle="إدارة مفارز المستشفيات العسكرية"):
     """عرض ترويسة الشريط الجانبي بتصميم عسكري موحد قابلة للتخصيص"""
     st.sidebar.markdown(f"""
     <div style="text-align: center; padding: 15px 0 20px 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; direction: rtl;">
-        <div style="font-size: 36px; margin-bottom: 5px;">🛡️ ⚙️</div>
+        <div style="font-size: 38px; margin-bottom: 5px;">🛡️ ⚙️ 🏥</div>
         <div style="font-size: 18px; font-weight: 800; color: #F8FAFC; letter-spacing: 0.5px;">{title}</div>
         <div style="font-size: 13px; color: #94A3B8; font-weight: 600;">{subtitle}</div>
     </div>
@@ -599,19 +753,20 @@ def render_metric_card(title, value, subtitle="", card_type="default"):
     </div>
     """
 
-def render_rtl_table(df, max_height="550px", highlight_commander=False):
+def render_rtl_table(df, max_height="600px", highlight_commander=False):
     """
     توليد جدول HTML عربي من اليمين إلى اليسار (RTL) بالكامل
     يضمن ظهور الأعمدة بالترتيب العربي الطبيعي (العمود الأول في أقصى اليمين)
     مع إمكانية تمييز قائد المفرزة (الأعلى رتبة)
+    بدون أي مسافات بادئة لمنع خطأ Python-Markdown code block
     """
     if df is None or df.empty:
-        return '<div style="color: #94A3B8; font-size: 13px; padding: 10px; text-align: right; direction: rtl;">⚠️ لا توجد بيانات لعرضها في الجدول.</div>'
+        return '<div style="color: #94A3B8; font-size: 13.5px; padding: 14px; text-align: right; direction: rtl; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px;">⚠️ لا توجد بيانات مسجلة لعرضها في الجدول حالياً.</div>'
     
     headers_html = "".join([f"<th>{col}</th>" for col in df.columns])
     
     rows_html = []
-    for idx, row in df.iterrows():
+    for idx, (_, row) in enumerate(df.iterrows()):
         cells = []
         is_commander = (idx == 0 and highlight_commander)
         
@@ -622,7 +777,7 @@ def render_rtl_table(df, max_height="550px", highlight_commander=False):
                 badge_extra = '<span class="badge-commander">👑 قائد المفرزة</span> ' if is_commander else ''
                 cells.append(f'<td>{badge_extra}<span class="badge-rank">{val}</span></td>')
             elif col == "الاسم الرباعي":
-                name_style = ' style="font-weight: 800; color: #0F172A;"' if is_commander else ''
+                name_style = ' style="font-weight: 800; color: #0F172A;"' if is_commander else ' style="font-weight: 700;"'
                 cells.append(f'<td{name_style}>{val}</td>')
             elif col == "الرقم العسكري":
                 cells.append(f'<td><span class="badge-mil-id">{val}</span></td>')
@@ -630,24 +785,23 @@ def render_rtl_table(df, max_height="550px", highlight_commander=False):
                 cells.append(f'<td><span class="badge-specialty">{val}</span></td>')
             elif col == "مدة الخدمة بالمفرزة":
                 cells.append(f'<td><b style="color: #15803D;">{val}</b></td>')
+            elif col == "رقم الهاتف":
+                if val and val != "-":
+                    cells.append(f'<td><a href="tel:{val}" style="color: #0369A1; font-weight: 600; text-decoration: none;">📞 {val}</a></td>')
+                else:
+                    cells.append('<td style="color: #94A3B8;">-</td>')
+            elif col in ["الملاحظات والتقييم الفني", "الملاحظات"]:
+                if val and val != "-":
+                    cells.append(f'<td style="color: #334155; max-width: 260px; white-space: normal;">{val}</td>')
+                else:
+                    cells.append('<td style="color: #94A3B8;">-</td>')
             else:
                 cells.append(f'<td>{val}</td>')
                 
         row_style = ' class="commander-row"' if is_commander else ''
         rows_html.append(f"<tr{row_style}>{''.join(cells)}</tr>")
         
-    return f"""
-    <div class="rtl-table-wrapper" style="max-height: {max_height};">
-        <table class="rtl-table" dir="rtl">
-            <thead>
-                <tr>{headers_html}</tr>
-            </thead>
-            <tbody>
-                {"".join(rows_html)}
-            </tbody>
-        </table>
-    </div>
-    """
+    return f'<div class="rtl-table-wrapper" style="max-height: {max_height};"><table class="rtl-table" dir="rtl"><thead><tr>{headers_html}</tr></thead><tbody>{"".join(rows_html)}</tbody></table></div>'
 
 def render_technician_card(tech):
     """توليد كود HTML لبطاقة الفني التعريفية العسكرية الشاملة"""
@@ -679,7 +833,7 @@ def render_technician_card(tech):
     <div class="military-id-card">
         <div class="id-card-header">
             <div class="id-card-title">🪪 البطاقة التعريفية العسكرية الشاملة</div>
-            <div class="id-card-badge">🛡️ القوات المسلحة الأردنية - الجيش العربي</div>
+            <div class="id-card-badge">🛡️ مديرية الخدمات الطبية الملكية</div>
         </div>
         <div class="id-card-body">
             <div class="id-card-hero">

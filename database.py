@@ -7,6 +7,8 @@ import sqlite3
 import os
 import io
 import json
+import hashlib
+import secrets
 import pandas as pd
 from datetime import datetime, date
 
@@ -150,6 +152,60 @@ def init_db(db_path=DB_NAME):
     );
     """)
 
+    # 5. جدول سجلات الموجود الصباحي اليومي للمفارز (Daily Roll Call)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS daily_roll_call (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        detachment_id INTEGER NOT NULL,
+        roll_call_date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'saved',
+        saved_by_rank TEXT NOT NULL,
+        saved_by_name TEXT NOT NULL,
+        saved_at TEXT NOT NULL,
+        total_strength INTEGER DEFAULT 0,
+        present_count INTEGER DEFAULT 0,
+        leave_count INTEGER DEFAULT 0,
+        sick_count INTEGER DEFAULT 0,
+        notes TEXT DEFAULT '',
+        FOREIGN KEY (detachment_id) REFERENCES detachments (id) ON DELETE CASCADE,
+        UNIQUE(detachment_id, roll_call_date)
+    );
+    """)
+
+    # 6. جدول تفاصيل وبنود الموجود الصباحي لكل فرد (Daily Roll Call Entries)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS daily_roll_call_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        roll_call_id INTEGER NOT NULL,
+        military_id TEXT NOT NULL,
+        rank TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        specialty TEXT,
+        status TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        FOREIGN KEY (roll_call_id) REFERENCES daily_roll_call (id) ON DELETE CASCADE
+    );
+    """)
+
+    # 7. جدول المستخدمين وحسابات الدخول والصلاحيات (Users & RBAC)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        rank TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'قائد مفرزة',
+        detachment_id INTEGER,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL,
+        last_login TEXT,
+        permissions_json TEXT DEFAULT '{}',
+        FOREIGN KEY (detachment_id) REFERENCES detachments (id) ON DELETE SET NULL
+    );
+    """)
+
     # التحقق من وجود الحقول الجديدة في جدول technicians وعمل Alter Table إن لزم (Migration)
     cursor.execute("PRAGMA table_info(technicians);")
     existing_cols = [col["name"] for col in cursor.fetchall()]
@@ -179,11 +235,34 @@ def init_db(db_path=DB_NAME):
         );
         """, (json.dumps(DEFAULT_TECH_COLUMNS, ensure_ascii=False),))
 
+    # ضمان تعيين المقدم المهندسة منار قائداً لمفرزة مستشفى الأمير علي بن الحسين (الكرك)
+    cursor.execute("SELECT id FROM detachments WHERE hospital_name LIKE '%علي%' OR governorate = 'الكرك' LIMIT 1;")
+    karak_det = cursor.fetchone()
+    karak_det_id = karak_det[0] if karak_det else 2
+
+    cursor.execute("""
+    UPDATE detachments 
+    SET supervisor_rank = 'مقدم', supervisor_name = 'المهندسة منار', contact_phone = '0773987654'
+    WHERE id = ?;
+    """, (karak_det_id,))
+
+    cursor.execute("SELECT COUNT(*) FROM technicians WHERE military_id = '20002' OR full_name LIKE '%منار%';")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("""
+        INSERT OR REPLACE INTO technicians (
+            military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes
+        ) VALUES (
+            '20002', 'مقدم', 'المهندسة منار', 'هندسة صيانة وتشغيل', 'سلاح الصيانة الملكي', 'قائد مفرزة مستشفى الأمير علي', 'الكرك', ?, '2020-01-01', '0773987654', 'قائد مفرزة مستشفى الأمير علي بن الحسين العسكري'
+        );
+        """, (karak_det_id,))
+
     conn.commit()
     conn.close()
 
     # التحقق من وجود بيانات أولية
     seed_if_empty(db_path)
+    # تهيئة الحسابات الافتراضية للمستخدمين
+    seed_default_users(db_path)
 
 def seed_if_empty(db_path=DB_NAME):
     """حقن بيانات تجريبية موسعة تشمل الصنف والسكن والمهنة"""
@@ -199,25 +278,25 @@ def seed_if_empty(db_path=DB_NAME):
             (
                 "مستشفى الأمير راشد بن الحسن العسكري",
                 "إربد",
-                "رئيس رقباء",
-                "محمد خليل عبيدات",
-                "0772123456",
+                "رائد",
+                "موسى حسن الشناق",
+                "0772233445",
                 "بحاجة ماسة إلى عدد (2) فني تكييف وتبريد متخصص في غرف العمليات، ونقص فني مولدات ضغط عالي.",
                 "مفرزة إقليم الشمال - تغطية شاملة لجميع أقسام الجراحة والباطني."
             ),
             (
                 "مستشفى الأمير علي بن الحسين العسكري",
                 "الكرك",
-                "وكيل أول",
-                "أحمد سالم الطراونة",
+                "مقدم",
+                "المهندسة منار",
                 "0773987654",
                 "نقص فني تمديدات صحية وشبكات مياه مركزية لفرع الطوارئ الجديد.",
-                "مفرزة إقليم الجنوب - جاهزية فنية مستقرة وجدول مناوبات منتظم."
+                "مفرزة إقليم الجنوب - إشراف هندسي وعسكري كامل وجدول مناوبات منتظم."
             ),
             (
                 "مستشفى الأمير هاشم بن الحسين العسكري",
                 "الزرقاء",
-                "وكيل",
+                "وكيل أول",
                 "خالد محمود الزيود",
                 "0775551234",
                 "المفرزة مكتملة العدد حالياً ولا توجد نواقص حرجة لهذا الشهر.",
@@ -226,7 +305,7 @@ def seed_if_empty(db_path=DB_NAME):
             (
                 "مستشفى الأميرة هيا بنت الحسين العسكري",
                 "جرش / عجلون",
-                "رقيب أول",
+                "وكيل",
                 "طارق إبراهيم القضاة",
                 "0778889900",
                 "بحاجة إلى عدد (1) فني كهرباء قوى ومحولات للوردية الليلية.",
@@ -235,7 +314,7 @@ def seed_if_empty(db_path=DB_NAME):
             (
                 "مستشفى الملكة علياء العسكري",
                 "عمان",
-                "وكيل أول",
+                "نقيب",
                 "عمر يوسف العدوان",
                 "0771122334",
                 "بحاجة إلى دعم إضافي بفني إنشائي عام لأعمال ترميم الأجنحة القديمة.",
@@ -391,6 +470,108 @@ def reset_columns_order():
 
 # --- دوال الاستعلام والبيانات (Queries) ---
 
+# أوزان الرتب العسكرية للأقدمية
+MILITARY_RANK_SENIORITY = {
+    "لواء": 100,
+    "عميد": 90,
+    "عقيد": 80,
+    "مقدم": 70,
+    "رائد": 60,
+    "نقيب": 50,
+    "ملازم/1": 40,
+    "ملازم": 30,
+    "وكيل أول": 20,
+    "وكيل": 15,
+    "رقيب أول": 12,
+    "رقيب": 10,
+    "عريف": 8,
+    "جندي أول": 5,
+    "جندي": 3,
+    "مكلف": 3,
+    "مدني": 1,
+    "مستخدم مدني": 1
+}
+
+def get_rank_weight(rank_str):
+    """إرجاع وزن الأقدمية العسكرية للرتبة للترتيب الدقيق"""
+    if not rank_str:
+        return -1
+    clean_r = str(rank_str).strip()
+    return MILITARY_RANK_SENIORITY.get(clean_r, 0)
+
+def get_mil_id_sort_key(mil_id_val):
+    """إرجاع الرقم العسكري كرقم صحيح للترتيب العددي الأقدم (الرقم الأقل أولاً)"""
+    if mil_id_val is None or pd.isna(mil_id_val):
+        return 999999999
+    try:
+        digits = ''.join(filter(str.isdigit, str(mil_id_val)))
+        return int(digits) if digits else 999999999
+    except Exception:
+        return 999999999
+
+def get_detachment_commander(detachment_id):
+    """
+    تحديد قائد المفرزة:
+    1. القائد المسجل رسمياً في جدول المفارز detachments (الرتبة والاسم والهاتف).
+    2. ربط الرقم العسكري من جدول المرتبات إذا وجد.
+    3. في حال عدم تعيين قائد في جدول المفارز، يتم استخراجه من المرتبات كأعلى رتبة أو المسمى الوظيفي 'قائد مفرزة'.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT supervisor_rank, supervisor_name, contact_phone FROM detachments WHERE id = ?;", (detachment_id,))
+    det_row = cursor.fetchone()
+
+    cursor.execute("""
+    SELECT t.military_id, t.rank, t.full_name, t.current_job, t.phone_number
+    FROM technicians t
+    WHERE t.current_detachment_id = ?;
+    """, (detachment_id,))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    
+    if det_row and det_row["supervisor_name"]:
+        # العثور على الرقم العسكري للقائد إذا كان مسجلاً بالمرتبات
+        matching_tech = next((r for r in rows if det_row["supervisor_name"] in r["full_name"] or r["full_name"] in det_row["supervisor_name"]), None)
+        return {
+            "rank": det_row["supervisor_rank"] or "قائد مفرزة",
+            "name": det_row["supervisor_name"],
+            "military_id": matching_tech["military_id"] if matching_tech else "-",
+            "phone": (matching_tech.get("phone_number") if matching_tech and matching_tech.get("phone_number") else None) or det_row["contact_phone"] or ""
+        }
+    
+    if rows:
+        # البحث عن فني مسمى وظيفته قائد مفرزة أولاً
+        cmd_tech = next((r for r in rows if "قائد" in (r.get("current_job") or "")), None)
+        if cmd_tech:
+            return {
+                "rank": cmd_tech["rank"],
+                "name": cmd_tech["full_name"],
+                "military_id": cmd_tech["military_id"],
+                "phone": cmd_tech.get("phone_number") or ""
+            }
+        # وإلا الأعلى رتبة
+        for r in rows:
+            r["_rank_weight"] = get_rank_weight(r["rank"])
+            r["_mil_sort"] = get_mil_id_sort_key(r["military_id"])
+            
+        rows.sort(key=lambda x: (x["_rank_weight"], -x["_mil_sort"]), reverse=True)
+        top = rows[0]
+        return {
+            "rank": top["rank"],
+            "name": top["full_name"],
+            "military_id": top["military_id"],
+            "phone": top.get("phone_number") or "",
+            "is_auto": True
+        }
+        
+    return {
+        "rank": "غير محدد",
+        "name": "غير محدد",
+        "military_id": "-",
+        "phone": ""
+    }
+
 def get_detachments_list():
     """إرجاع قائمة بجميع المفارز مع قائد المفرزة (الأعلى رتبة دائماً)"""
     conn = get_db_connection()
@@ -513,77 +694,7 @@ def delete_detachment(detachment_id):
     return success
 
 # جدول أوزان الأقدمية للرتب العسكرية من الأعلى إلى الأدنى
-MILITARY_RANK_SENIORITY = {
-    "مقدم": 90,
-    "رائد": 80,
-    "نقيب": 70,
-    "ملازم/1": 60,
-    "ملازم أول": 60,
-    "ملازم 1": 60,
-    "ملازم": 50,
-    "وكيل أول": 40,
-    "وكيل 1": 40,
-    "وكيل": 30,
-    "رقيب أول": 20,
-    "رقيب 1": 20,
-    "رقيب": 15,
-    "عريف": 10,
-    "جندي أول": 5,
-    "جندي 1": 5,
-    "جندي مكلف": 3,
-    "جندي": 3,
-    "مكلف": 3,
-    "مدني": 1,
-    "مستخدم مدني": 1
-}
 
-def get_rank_weight(rank_str):
-    """إرجاع وزن الأقدمية العسكرية للرتبة للترتيب الدقيق"""
-    if not rank_str:
-        return -1
-    clean_r = str(rank_str).strip()
-    return MILITARY_RANK_SENIORITY.get(clean_r, 0)
-
-def get_mil_id_sort_key(mil_id_val):
-    """إرجاع الرقم العسكري كرقم صحيح للترتيب العددي الأقدم (الرقم الأقل أولاً)"""
-    if mil_id_val is None or pd.isna(mil_id_val):
-        return 999999999
-    try:
-        digits = ''.join(filter(str.isdigit, str(mil_id_val)))
-        return int(digits) if digits else 999999999
-    except Exception:
-        return 999999999
-
-def get_detachment_commander(detachment_id):
-    """
-    تحديد قائد المفرزة تلقائياً وهو دائماً صاحب الرتبة الأعلى والأقدم رقماً عسكرياً بين مرتبات المفرزة
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-    SELECT t.military_id, t.rank, t.full_name, t.phone_number
-    FROM technicians t
-    WHERE t.current_detachment_id = ?;
-    """, (detachment_id,))
-    rows = [dict(r) for r in cursor.fetchall()]
-    conn.close()
-    
-    if rows:
-        for r in rows:
-            r["_rank_weight"] = get_rank_weight(r["rank"])
-            r["_mil_sort"] = get_mil_id_sort_key(r["military_id"])
-            
-        rows.sort(key=lambda x: (x["_rank_weight"], -x["_mil_sort"]), reverse=True)
-        top = rows[0]
-        return {
-            "rank": top["rank"],
-            "name": top["full_name"],
-            "military_id": top["military_id"],
-            "phone": top.get("phone_number") or "",
-            "is_auto": True
-        }
-        
-    return None
 
 def get_all_technicians_df(apply_custom_columns=True):
     """إرجاع جدول جميع الفنيين مرتباً حسب الرتبة العسكرية (من الأعلى للأدنى) ثم الرقم العسكري الأقل"""
@@ -1061,12 +1172,14 @@ def restore_db_bytes(data_bytes, db_path=DB_NAME):
         return False, f"حدث خطأ أثناء الاستعادة: {str(e)}"
 
 def export_full_database_excel(db_path=DB_NAME):
-    """تصدير قاعدة البيانات بالكامل إلى ملف Excel شامل لكافة الجداول"""
+    """تصدير قاعدة البيانات بالكامل إلى ملف Excel شامل لكافة الجداول بما فيها الموجود الصباحي"""
     conn = get_db_connection(db_path)
     detachments_df = pd.read_sql_query("SELECT * FROM detachments", conn)
     technicians_df = pd.read_sql_query("SELECT * FROM technicians", conn)
     movements_df = pd.read_sql_query("SELECT * FROM movement_log", conn)
     settings_df = pd.read_sql_query("SELECT * FROM app_settings", conn)
+    roll_call_df = pd.read_sql_query("SELECT * FROM daily_roll_call", conn)
+    entries_df = pd.read_sql_query("SELECT * FROM daily_roll_call_entries", conn)
     conn.close()
 
     output = io.BytesIO()
@@ -1074,5 +1187,685 @@ def export_full_database_excel(db_path=DB_NAME):
         detachments_df.to_excel(writer, index=False, sheet_name="المفارز")
         technicians_df.to_excel(writer, index=False, sheet_name="الفنيين")
         movements_df.to_excel(writer, index=False, sheet_name="سجل_حركات_النقل")
+        roll_call_df.to_excel(writer, index=False, sheet_name="الموجود_الصباحي_الرئيسي")
+        entries_df.to_excel(writer, index=False, sheet_name="تفاصيل_الموجود_اليومي")
         settings_df.to_excel(writer, index=False, sheet_name="الإعدادات")
     return output.getvalue()
+
+# ==============================================================================
+# إدارة الموجود الصباحي اليومي (Daily Morning Roll Call)
+# ==============================================================================
+
+def get_daily_roll_call(detachment_id, roll_call_date, db_path=DB_NAME):
+    """
+    جلب سجل الموجود الصباحي لمفرزة في تاريخ محدد مع تفاصيل حالة كل فني
+    يرجع (roll_call_record, entries_list) أو (None, []) إذا لم يكن مسجلاً بعد
+    """
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT r.*, d.hospital_name, d.governorate
+        FROM daily_roll_call r
+        JOIN detachments d ON r.detachment_id = d.id
+        WHERE r.detachment_id = ? AND r.roll_call_date = ?
+    """, (detachment_id, roll_call_date))
+    record = cursor.fetchone()
+
+    if not record:
+        conn.close()
+        return None, []
+
+    roll_call = dict(record)
+
+    cursor.execute("""
+        SELECT *
+        FROM daily_roll_call_entries
+        WHERE roll_call_id = ?
+        ORDER BY id ASC
+    """, (roll_call["id"],))
+    entries = [dict(row) for row in cursor.fetchall()]
+
+    conn.close()
+    return roll_call, entries
+
+def get_roll_call_by_id(roll_call_id, db_path=DB_NAME):
+    """جلب سجل الموجود الصباحي بالمعرف الفريد مع تفاصيل المرتب"""
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT r.*, d.hospital_name, d.governorate
+        FROM daily_roll_call r
+        JOIN detachments d ON r.detachment_id = d.id
+        WHERE r.id = ?
+    """, (roll_call_id,))
+    record = cursor.fetchone()
+
+    if not record:
+        conn.close()
+        return None, []
+
+    roll_call = dict(record)
+
+    cursor.execute("""
+        SELECT *
+        FROM daily_roll_call_entries
+        WHERE roll_call_id = ?
+        ORDER BY id ASC
+    """, (roll_call_id,))
+    entries = [dict(row) for row in cursor.fetchall()]
+
+    conn.close()
+    return roll_call, entries
+
+def save_daily_roll_call(detachment_id, roll_call_date, entries, saved_by_rank, saved_by_name, notes="", is_branch_chief=False, db_path=DB_NAME):
+    """
+    حفظ واعتماد الموجود الصباحي للمفرزة
+    القاعدة الصارمة: ما دام تم الحفظ من قبل قائد المفرزة، لا يمكن التعديل إلا إذا كان المستخدم رئيس الفرع.
+    """
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # فحص إذا كان السجل محفوظاً مسبقاً
+        cursor.execute("SELECT id, status FROM daily_roll_call WHERE detachment_id = ? AND roll_call_date = ?", (detachment_id, roll_call_date))
+        existing = cursor.fetchone()
+
+        if existing and not is_branch_chief:
+            conn.close()
+            return False, "⚠️ تم حفظ الموجود الصباحي لهذه المفرزة مسبقاً وهو مقفل ومعتمد. لا يمكن التعديل إلا من قبل رئيس الفرع."
+
+        # حساب الإحصائيات من قائمة البنود
+        total_strength = len(entries)
+        present_count = sum(1 for e in entries if e.get("status") == "موجود")
+        leave_count = sum(1 for e in entries if e.get("status") == "مجاز")
+        sick_count = sum(1 for e in entries if e.get("status") in ["مراجعة مرضية", "مراجعة مرضة", "مرضي"])
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if existing:
+            # تعديل (مسموح لرئيس الفرع)
+            roll_call_id = existing["id"]
+            cursor.execute("""
+                UPDATE daily_roll_call
+                SET total_strength = ?,
+                    present_count = ?,
+                    leave_count = ?,
+                    sick_count = ?,
+                    saved_by_rank = ?,
+                    saved_by_name = ?,
+                    saved_at = ?,
+                    notes = ?,
+                    status = 'saved'
+                WHERE id = ?
+            """, (total_strength, present_count, leave_count, sick_count, saved_by_rank, saved_by_name, now_str, notes, roll_call_id))
+
+            cursor.execute("DELETE FROM daily_roll_call_entries WHERE roll_call_id = ?", (roll_call_id,))
+        else:
+            # إدخال جديد
+            cursor.execute("""
+                INSERT INTO daily_roll_call (
+                    detachment_id, roll_call_date, status, saved_by_rank, saved_by_name, saved_at,
+                    total_strength, present_count, leave_count, sick_count, notes
+                ) VALUES (?, ?, 'saved', ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (detachment_id, roll_call_date, saved_by_rank, saved_by_name, now_str,
+                  total_strength, present_count, leave_count, sick_count, notes))
+            roll_call_id = cursor.lastrowid
+
+        # إدراج تفاصيل مرتبات الفنيين
+        for entry in entries:
+            norm_status = entry.get("status", "موجود")
+            if norm_status in ["مراجعة مرضة", "مرضي"]:
+                norm_status = "مراجعة مرضية"
+            cursor.execute("""
+                INSERT INTO daily_roll_call_entries (
+                    roll_call_id, military_id, rank, full_name, specialty, status, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                roll_call_id,
+                str(entry.get("military_id", "")),
+                str(entry.get("rank", "")),
+                str(entry.get("full_name", "")),
+                str(entry.get("specialty", "")),
+                norm_status,
+                str(entry.get("notes", "") or "")
+            ))
+
+        conn.commit()
+        conn.close()
+        return True, "✅ تم حفظ واعتماد الموجود الصباحي للمفرزة بنجاح."
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return False, f"❌ حدث خطأ أثناء حفظ الموجود الصباحي: {str(e)}"
+
+def update_or_unlock_roll_call(roll_call_id, entries, notes, modified_by_rank, modified_by_name, db_path=DB_NAME):
+    """تعديل سجل موجود سابق أو فك القفل (خاص برئيس الفرع فقط)"""
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        total_strength = len(entries)
+        present_count = sum(1 for e in entries if e.get("status") == "موجود")
+        leave_count = sum(1 for e in entries if e.get("status") == "مجاز")
+        sick_count = sum(1 for e in entries if e.get("status") in ["مراجعة مرضية", "مراجعة مرضة", "مرضي"])
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        cursor.execute("""
+            UPDATE daily_roll_call
+            SET total_strength = ?,
+                present_count = ?,
+                leave_count = ?,
+                sick_count = ?,
+                saved_by_rank = ?,
+                saved_by_name = ?,
+                saved_at = ?,
+                notes = ?
+            WHERE id = ?
+        """, (total_strength, present_count, leave_count, sick_count, modified_by_rank, modified_by_name, now_str, notes, roll_call_id))
+
+        cursor.execute("DELETE FROM daily_roll_call_entries WHERE roll_call_id = ?", (roll_call_id,))
+
+        for entry in entries:
+            norm_status = entry.get("status", "موجود")
+            if norm_status in ["مراجعة مرضة", "مرضي"]:
+                norm_status = "مراجعة مرضية"
+            cursor.execute("""
+                INSERT INTO daily_roll_call_entries (
+                    roll_call_id, military_id, rank, full_name, specialty, status, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                roll_call_id,
+                str(entry.get("military_id", "")),
+                str(entry.get("rank", "")),
+                str(entry.get("full_name", "")),
+                str(entry.get("specialty", "")),
+                norm_status,
+                str(entry.get("notes", "") or "")
+            ))
+
+        conn.commit()
+        conn.close()
+        return True, "✅ تم تحديث سجل الموجود الصباحي بنجاح بواسطة رئيس الفرع."
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return False, f"❌ حدث خطأ أثناء تعديل الموجود: {str(e)}"
+
+def delete_daily_roll_call(roll_call_id, db_path=DB_NAME):
+    """حذف سجل موجود يومي (صلاحية رئيس الفرع فقط لإعادة الفتح)"""
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM daily_roll_call WHERE id = ?", (roll_call_id,))
+        conn.commit()
+        conn.close()
+        return True, "تم حذف سجل الموجود وإعادة فتحه للإدخال."
+    except Exception as e:
+        conn.close()
+        return False, f"تعذر حذف السجل: {str(e)}"
+
+def get_roll_call_history_df(detachment_id=None, start_date=None, end_date=None, db_path=DB_NAME):
+    """إرجاع تاريخ سجلات الموجود كـ DataFrame مع اسم المستشفى والمحافظة"""
+    conn = get_db_connection(db_path)
+    query = """
+        SELECT 
+            r.id as "رقم السجل",
+            r.roll_call_date as "التاريخ",
+            d.hospital_name as "المستشفى / المفرزة",
+            d.governorate as "المحافظة",
+            r.total_strength as "القوة الإجمالية",
+            r.present_count as "الموجود",
+            r.leave_count as "المجاز",
+            r.sick_count as "مراجعة مرضية",
+            ROUND((CAST(r.present_count AS FLOAT) / NULLIF(r.total_strength, 0)) * 100, 1) as "نسبة الجاهزية %",
+            (r.saved_by_rank || ' / ' || r.saved_by_name) as "القائم بالحفظ",
+            r.saved_at as "تاريخ ووقت الحفظ",
+            r.notes as "ملاحظات الموجود",
+            r.detachment_id as "detachment_id"
+        FROM daily_roll_call r
+        JOIN detachments d ON r.detachment_id = d.id
+        WHERE 1=1
+    """
+    params = []
+    if detachment_id:
+        query += " AND r.detachment_id = ?"
+        params.append(detachment_id)
+    if start_date:
+        query += " AND r.roll_call_date >= ?"
+        params.append(str(start_date))
+    if end_date:
+        query += " AND r.roll_call_date <= ?"
+        params.append(str(end_date))
+
+    query += " ORDER BY r.roll_call_date DESC, d.hospital_name ASC"
+
+    df = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return df
+
+def get_consolidated_roll_call_summary(roll_call_date, db_path=DB_NAME):
+    """
+    إرجاع الموقف العام لكافة المفارز في تاريخ محدد
+    يشمل المفارز التي سلّمت الموجود والمفارز المعلقة (لم تسلم بعد)
+    """
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    # جلب جميع المفارز مع عدد الفنيين الحاليين
+    cursor.execute("""
+        SELECT 
+            d.id,
+            d.hospital_name,
+            d.governorate,
+            d.supervisor_rank,
+            d.supervisor_name,
+            d.contact_phone,
+            COUNT(t.military_id) as actual_technicians_count
+        FROM detachments d
+        LEFT JOIN technicians t ON d.id = t.current_detachment_id
+        GROUP BY d.id
+        ORDER BY d.governorate ASC, d.hospital_name ASC
+    """)
+    detachments = [dict(row) for row in cursor.fetchall()]
+
+    # جلب سجلات الموجود لهذا اليوم
+    cursor.execute("""
+        SELECT *
+        FROM daily_roll_call
+        WHERE roll_call_date = ?
+    """, (str(roll_call_date),))
+    records_by_det_id = {row["detachment_id"]: dict(row) for row in cursor.fetchall()}
+
+    conn.close()
+
+    summary_list = []
+    total_strength_sum = 0
+    total_present_sum = 0
+    total_leave_sum = 0
+    total_sick_sum = 0
+    submitted_count = 0
+    pending_count = 0
+
+    for d in detachments:
+        det_id = d["id"]
+        rec = records_by_det_id.get(det_id)
+        if rec:
+            submitted_count += 1
+            tot = rec["total_strength"]
+            pres = rec["present_count"]
+            lea = rec["leave_count"]
+            sck = rec["sick_count"]
+            readiness = round((pres / tot * 100), 1) if tot > 0 else 100.0
+
+            total_strength_sum += tot
+            total_present_sum += pres
+            total_leave_sum += lea
+            total_sick_sum += sck
+
+            summary_list.append({
+                "detachment_id": det_id,
+                "record_id": rec["id"],
+                "hospital_name": d["hospital_name"],
+                "governorate": d["governorate"],
+                "supervisor": f"{d['supervisor_rank']} / {d['supervisor_name']}",
+                "contact_phone": d["contact_phone"] or "-",
+                "is_submitted": True,
+                "status_badge": "✅ تم التسليم والاعتماد",
+                "total_strength": tot,
+                "present_count": pres,
+                "leave_count": lea,
+                "sick_count": sck,
+                "readiness_pct": readiness,
+                "saved_by": f"{rec['saved_by_rank']} / {rec['saved_by_name']}",
+                "saved_at": rec["saved_at"],
+                "notes": rec["notes"] or ""
+            })
+        else:
+            pending_count += 1
+            tot = d["actual_technicians_count"]
+            total_strength_sum += tot
+            summary_list.append({
+                "detachment_id": det_id,
+                "record_id": None,
+                "hospital_name": d["hospital_name"],
+                "governorate": d["governorate"],
+                "supervisor": f"{d['supervisor_rank']} / {d['supervisor_name']}",
+                "contact_phone": d["contact_phone"] or "-",
+                "is_submitted": False,
+                "status_badge": "⏳ قيد الانتظار (لم يُسلَّم)",
+                "total_strength": tot,
+                "present_count": 0,
+                "leave_count": 0,
+                "sick_count": 0,
+                "readiness_pct": 0.0,
+                "saved_by": "-",
+                "saved_at": "-",
+                "notes": "لم يتم إدخال الموجود الصباحي من قائد المفرزة بعد"
+            })
+
+    return {
+        "date": str(roll_call_date),
+        "total_detachments": len(detachments),
+        "submitted_detachments": submitted_count,
+        "pending_detachments": pending_count,
+        "total_strength": total_strength_sum,
+        "total_present": total_present_sum,
+        "total_leave": total_leave_sum,
+        "total_sick": total_sick_sum,
+        "overall_readiness": round((total_present_sum / total_strength_sum * 100), 1) if total_strength_sum > 0 else 0.0,
+        "summary_list": summary_list
+    }
+
+def export_roll_call_to_excel(roll_call_meta, entries_list):
+    """تصدير كشف الموجود الصباحي لمفرزة أو يوم محدد إلى ملف Excel منسق"""
+    meta_df = pd.DataFrame([{
+        "المستشفى / المفرزة": roll_call_meta.get("hospital_name", "-"),
+        "المحافظة": roll_call_meta.get("governorate", "-"),
+        "تاريخ الموجود": roll_call_meta.get("roll_call_date", "-"),
+        "القوة الإجمالية": roll_call_meta.get("total_strength", len(entries_list)),
+        "الموجود الفعلي": roll_call_meta.get("present_count", sum(1 for e in entries_list if e.get("status") == "موجود")),
+        "المجاز": roll_call_meta.get("leave_count", sum(1 for e in entries_list if e.get("status") == "مجاز")),
+        "مراجعة مرضية": roll_call_meta.get("sick_count", sum(1 for e in entries_list if e.get("status") == "مراجعة مرضية")),
+        "القائم بالاعتماد": f"{roll_call_meta.get('saved_by_rank', '')} / {roll_call_meta.get('saved_by_name', '')}",
+        "تاريخ ووقت الحفظ": roll_call_meta.get("saved_at", "-"),
+        "الملاحظات": roll_call_meta.get("notes", "-")
+    }])
+
+    entries_rows = []
+    for i, e in enumerate(entries_list, 1):
+        entries_rows.append({
+            "م": i,
+            "الرقم العسكري": e.get("military_id", ""),
+            "الرتبة": e.get("rank", ""),
+            "الاسم الرباعي": e.get("full_name", ""),
+            "الصنف": e.get("specialty", ""),
+            "الحالة": e.get("status", "موجود"),
+            "الملاحظات والسبب": e.get("notes", "")
+        })
+    entries_df = pd.DataFrame(entries_rows)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        meta_df.to_excel(writer, index=False, sheet_name="ملخص_الموجود")
+        entries_df.to_excel(writer, index=False, sheet_name="كشف_المرتب_التفصيلي")
+    return output.getvalue()
+
+
+# ==============================================================================
+# إدارة المستخدمين، تسجيل الدخول، وتوزيع الصلاحيات (Authentication & RBAC)
+# ==============================================================================
+
+def hash_password(password, salt=None):
+    """تشفير كلمة المرور مع Salt عشوائي للحماية الأمنية العالية"""
+    if salt is None:
+        salt = secrets.token_hex(16)
+    combined = (str(salt) + str(password)).encode('utf-8')
+    pwd_hash = hashlib.sha256(combined).hexdigest()
+    return pwd_hash, salt
+
+def authenticate_user(username, password, db_path=DB_NAME):
+    """
+    التحقق من بيانات الدخول (اسم المستخدم/الرقم العسكري + كلمة المرور)
+    يرجع (نجاح/فشل، كائن المستخدم، رسالة الحالة)
+    """
+    if not username or not password:
+        return False, None, "يرجى إدخال رقم التعريف وكلمة المرور."
+
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.*, d.hospital_name, d.governorate
+        FROM users u
+        LEFT JOIN detachments d ON u.detachment_id = d.id
+        WHERE LOWER(u.username) = LOWER(?)
+    """, (str(username).strip(),))
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return False, None, "❌ رقم التعريف / اسم المستخدم غير مسجل في المنظومة."
+
+    user = dict(row)
+    if not user.get("is_active", 1):
+        conn.close()
+        return False, None, "⛔ هذا الحساب مجمد أو موقوف حالياً. يرجى مراجعة رئيس الفرع."
+
+    expected_hash, _ = hash_password(password, user["salt"])
+    if expected_hash != user["password_hash"]:
+        conn.close()
+        return False, None, "❌ كلمة المرور غير صحيحة. يرجى التأكد من كلمة المرور والمحاولة ثانية."
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("UPDATE users SET last_login = ? WHERE id = ?", (now_str, user["id"]))
+    conn.commit()
+    conn.close()
+
+    user["last_login"] = now_str
+    return True, user, "✅ تم تسجيل الدخول بنجاح!"
+
+def get_all_users_df(db_path=DB_NAME):
+    """إرجاع جدول كافة المستخدمين كـ DataFrame مع بيانات المفرزة المرتبطة"""
+    conn = get_db_connection(db_path)
+    query = """
+    SELECT 
+        u.id,
+        u.username,
+        u.rank,
+        u.full_name,
+        u.role,
+        u.detachment_id,
+        d.hospital_name,
+        d.governorate,
+        u.is_active,
+        u.created_at,
+        u.last_login
+    FROM users u
+    LEFT JOIN detachments d ON u.detachment_id = d.id
+    ORDER BY 
+        CASE WHEN u.role = 'رئيس الفرع' THEN 1 ELSE 2 END,
+        u.id ASC;
+    """
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
+
+def get_user_by_id(user_id, db_path=DB_NAME):
+    """جلب بيانات مستخدم محدد بالمعرف"""
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.*, d.hospital_name, d.governorate
+        FROM users u
+        LEFT JOIN detachments d ON u.detachment_id = d.id
+        WHERE u.id = ?
+    """, (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def create_user(username, password, full_name, rank, role, detachment_id=None, permissions=None, db_path=DB_NAME):
+    """إنشاء مستخدم جديد مع تشفير كلمة المرور وتعيين الصلاحيات"""
+    clean_u = str(username).strip()
+    if not clean_u or not password or not full_name:
+        return False, "يرجى تعبئة كافة الحقول الإلزامية (اسم المستخدم، كلمة المرور، الاسم الكامل)."
+
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?);", (clean_u,))
+        if cursor.fetchone():
+            conn.close()
+            return False, f"اسم المستخدم أو رقم التعريف '{clean_u}' مسجل مسبقاً لمستخدم آخر."
+
+        pwd_hash, salt = hash_password(password)
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        perm_json = json.dumps(permissions or {}, ensure_ascii=False)
+
+        cursor.execute("""
+        INSERT INTO users (
+            username, password_hash, salt, full_name, rank, role, detachment_id, is_active, created_at, permissions_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?);
+        """, (clean_u, pwd_hash, salt, full_name, rank, role, detachment_id, now_str, perm_json))
+
+        conn.commit()
+        conn.close()
+        return True, f"✅ تم إنشاء حساب المستخدم '{clean_u}' بنجاح!"
+    except Exception as e:
+        conn.close()
+        return False, f"❌ حدث خطأ أثناء إنشاء المستخدم: {str(e)}"
+
+def update_user(user_id, full_name, rank, role, detachment_id=None, is_active=1, permissions=None, db_path=DB_NAME):
+    """تحديث بيانات المستخدم والرتبة والصلاحيات"""
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+    try:
+        perm_json = json.dumps(permissions or {}, ensure_ascii=False) if permissions is not None else None
+        
+        if perm_json is not None:
+            cursor.execute("""
+            UPDATE users
+            SET full_name = ?, rank = ?, role = ?, detachment_id = ?, is_active = ?, permissions_json = ?
+            WHERE id = ?;
+            """, (full_name, rank, role, detachment_id, is_active, perm_json, user_id))
+        else:
+            cursor.execute("""
+            UPDATE users
+            SET full_name = ?, rank = ?, role = ?, detachment_id = ?, is_active = ?
+            WHERE id = ?;
+            """, (full_name, rank, role, detachment_id, is_active, user_id))
+
+        conn.commit()
+        conn.close()
+        return True, "✅ تم تحديث بيانات المستخدم وصلاحياته بنجاح!"
+    except Exception as e:
+        conn.close()
+        return False, f"❌ حدث خطأ أثناء التحديث: {str(e)}"
+
+def change_user_password(user_id, new_password, db_path=DB_NAME):
+    """تغيير أو إعادة ضبط كلمة المرور لمستخدم"""
+    if not new_password or len(str(new_password).strip()) < 3:
+        return False, "يجب أن تتكون كلمة المرور من 3 خانات على الأقل."
+
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+    try:
+        pwd_hash, salt = hash_password(new_password)
+        cursor.execute("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?;", (pwd_hash, salt, user_id))
+        conn.commit()
+        conn.close()
+        return True, "✅ تم تغيير كلمة المرور بنجاح!"
+    except Exception as e:
+        conn.close()
+        return False, f"❌ حدث خطأ: {str(e)}"
+
+def delete_user(user_id, db_path=DB_NAME):
+    """حذف حساب مستخدم من المنظومة"""
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM users WHERE id = ?;", (user_id,))
+        conn.commit()
+        conn.close()
+        return True, "تم حذف المستخدم بنجاح."
+    except Exception as e:
+        conn.close()
+        return False, f"تعذر حذف المستخدم: {str(e)}"
+
+def seed_default_users(db_path=DB_NAME):
+    """تهيئة وتحديث الحسابات الافتراضية بالأرقام العسكرية لرئيس الفرع وقادة المفارز بالمستشفيات"""
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # جلب المفارز بالاسم لربط المعرفات بدقة
+    cursor.execute("SELECT id, hospital_name FROM detachments;")
+    dets_map = {row["hospital_name"]: row["id"] for row in cursor.fetchall()}
+
+    # تحديد معرفات المستشفيات
+    karak_id = next((v for k, v in dets_map.items() if "علي" in k or "الكرك" in k), 2)
+    irbid_id = next((v for k, v in dets_map.items() if "راشد" in k or "إربد" in k), 1)
+    zarqa_id = next((v for k, v in dets_map.items() if "هاشم" in k or "الزرقاء" in k), 3)
+    jerash_id = next((v for k, v in dets_map.items() if "هيا" in k or "جرش" in k), 4)
+    alia_id = next((v for k, v in dets_map.items() if "علياء" in k or "عمان" in k), 5)
+
+    # تحديث وتثبيت بيانات قادة المفارز الرسمية في جدول detachments
+    detachments_official = [
+        (irbid_id, "رائد", "موسى حسن الشناق", "0772233445"),
+        (karak_id, "مقدم", "المهندسة منار", "0773987654"),
+        (zarqa_id, "وكيل أول", "خالد محمود الزيود", "0775551234"),
+        (jerash_id, "وكيل", "طارق إبراهيم القضاة", "0778889900"),
+        (alia_id, "نقيب", "عمر يوسف العدوان", "0771122334")
+    ]
+    for d_id, s_rank, s_name, s_phone in detachments_official:
+        if d_id:
+            cursor.execute("""
+            UPDATE detachments 
+            SET supervisor_rank = ?, supervisor_name = ?, contact_phone = ?
+            WHERE id = ?;
+            """, (s_rank, s_name, s_phone, d_id))
+
+    # ضبط فني رئيس الفرع (المقدم المهندس رامي سبع العيش) ليكون بالنطاق العام المركزي (detachment = NULL)
+    cursor.execute("""
+    UPDATE technicians 
+    SET current_detachment_id = NULL, rank = 'مقدم', full_name = 'المهندس رامي سبع العيش', current_job = 'رئيس فرع صيانة المستشفيات', residence = 'عمان', phone_number = '0790000001'
+    WHERE military_id = '10001';
+    """)
+
+    # قائمة الحسابات الرسمية بالرقم العسكري
+    default_accounts = [
+        # رئيس الفرع (المقدم المهندس رامي سبع العيش - صلاحية شاملة كاملة)
+        ("10001", "123456", "المهندس رامي سبع العيش", "مقدم", "رئيس الفرع", None),
+        ("admin", "123456", "المهندس رامي سبع العيش", "مقدم", "رئيس الفرع", None),
+        # قائد مفرزة مستشفى الأمير علي بن الحسين - الكرك (المقدم المهندسة منار)
+        ("20002", "123456", "المهندسة منار", "مقدم", "قائد مفرزة", karak_id),
+        ("cmd_karak", "123456", "المهندسة منار", "مقدم", "قائد مفرزة", karak_id),
+        # قادة المفارز بالمستشفيات العسكرية الأخرى
+        ("20001", "123456", "موسى حسن الشناق", "رائد", "قائد مفرزة", irbid_id),
+        ("cmd_irbid", "123456", "موسى حسن الشناق", "رائد", "قائد مفرزة", irbid_id),
+        ("20003", "123456", "خالد محمود الزيود", "وكيل أول", "قائد مفرزة", zarqa_id),
+        ("cmd_zarqa", "123456", "خالد محمود الزيود", "وكيل أول", "قائد مفرزة", zarqa_id),
+        ("20004", "123456", "طارق إبراهيم القضاة", "وكيل", "قائد مفرزة", jerash_id),
+        ("cmd_jerash", "123456", "طارق إبراهيم القضاة", "وكيل", "قائد مفرزة", jerash_id),
+        ("20005", "123456", "عمر يوسف العدوان", "نقيب", "قائد مفرزة", alia_id),
+        ("cmd_alia", "123456", "عمر يوسف العدوان", "نقيب", "قائد مفرزة", alia_id),
+    ]
+
+    for u_name, pwd, f_name, rnk, rol, d_id in default_accounts:
+        pwd_hash, salt = hash_password(pwd)
+        cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?);", (u_name,))
+        existing = cursor.fetchone()
+        if existing:
+            cursor.execute("""
+            UPDATE users
+            SET password_hash = ?, salt = ?, full_name = ?, rank = ?, role = ?, detachment_id = ?, is_active = 1
+            WHERE id = ?;
+            """, (pwd_hash, salt, f_name, rnk, rol, d_id, existing[0]))
+        else:
+            cursor.execute("""
+            INSERT INTO users (
+                username, password_hash, salt, full_name, rank, role, detachment_id, is_active, created_at, permissions_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, '{}');
+            """, (u_name, pwd_hash, salt, f_name, rnk, rol, d_id, now_str))
+
+    # ضمان وجود قادة المفارز في جدول الفنيين مع مسمياتهم الصحيحة
+    commanders_in_techs = [
+        ("20001", "رائد", "موسى حسن الشناق", "هندسة صيانة وتشغيل", "سلاح الصيانة الملكي", "قائد مفرزة مستشفى الأمير راشد", "إربد", irbid_id, "2020-01-01", "0772233445", "قائد مفرزة مستشفى الأمير راشد بن الحسن العسكري"),
+        ("20002", "مقدم", "المهندسة منار", "هندسة صيانة وتشغيل", "سلاح الصيانة الملكي", "قائد مفرزة مستشفى الأمير علي", "الكرك", karak_id, "2020-01-01", "0773987654", "قائد مفرزة مستشفى الأمير علي بن الحسين العسكري"),
+        ("20003", "وكيل أول", "خالد محمود الزيود", "صيانة عامة", "سلاح الصيانة الملكي", "قائد مفرزة مستشفى الأمير هاشم", "الزرقاء", zarqa_id, "2020-01-01", "0775551234", "قائد مفرزة مستشفى الأمير هاشم بن الحسين العسكري"),
+        ("20004", "وكيل", "طارق إبراهيم القضاة", "صيانة عامة", "سلاح الصيانة الملكي", "قائد مفرزة مستشفى الأميرة هيا", "عجلون", jerash_id, "2020-01-01", "0778889900", "قائد مفرزة مستشفى الأميرة هيا بنت الحسين العسكري"),
+        ("20005", "نقيب", "عمر يوسف العدوان", "هندسة صيانة وتشغيل", "سلاح الصيانة الملكي", "قائد مفرزة مستشفى الملكة علياء", "عمان", alia_id, "2020-01-01", "0771122334", "قائد مفرزة مستشفى الملكة علياء العسكري")
+    ]
+    for mil_id, rnk, name, spec, cat, job, res, d_id, j_date, ph, notes in commanders_in_techs:
+        if d_id:
+            cursor.execute("""
+            INSERT OR REPLACE INTO technicians (
+                military_id, rank, full_name, specialty, primary_category, current_job, residence, current_detachment_id, join_date, phone_number, evaluation_and_notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """, (mil_id, rnk, name, spec, cat, job, res, d_id, j_date, ph, notes))
+
+    conn.commit()
+    conn.close()
