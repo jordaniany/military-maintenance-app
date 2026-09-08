@@ -45,19 +45,19 @@
       z-index: 9999;
       color: #FFFFFF;
       transition: opacity 0.5s ease, visibility 0.5s ease;
-      padding: 20px;
+      padding: 24px;
       text-align: center;
     }
     
     .splash-logo {
-      font-size: 64px;
+      font-size: 60px;
       margin-bottom: 16px;
       filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
       animation: pulse 2s infinite ease-in-out;
     }
     
     .splash-title {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 900;
       color: #F8FAFC;
       margin-bottom: 6px;
@@ -65,10 +65,10 @@
     }
     
     .splash-subtitle {
-      font-size: 15px;
+      font-size: 14.5px;
       font-weight: 600;
       color: #94A3B8;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     
     .splash-badge {
@@ -80,12 +80,12 @@
       font-weight: 700;
       padding: 6px 18px;
       border-radius: 20px;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
     
     .splash-loader {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       border: 4px solid rgba(255, 255, 255, 0.15);
       border-top: 4px solid #38BDF8;
       border-radius: 50%;
@@ -97,6 +97,29 @@
       font-size: 13.5px;
       color: #CBD5E1;
       font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .direct-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #1E40AF 0%, #0284C7 100%);
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px 22px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .direct-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
     }
     
     #app-frame {
@@ -125,31 +148,47 @@
     <div class="splash-logo">🛡️ ⚙️ 🏥</div>
     <div class="splash-title">مديرية الخدمات الطبية الملكية</div>
     <div class="splash-subtitle">شعبة صيانة المستشفيات - نظام إدارة المفارز والموجود الصباحي</div>
-    <div class="splash-badge">النسخة المحدثة 2026 • ربط مباشر</div>
-    <div class="splash-loader"></div>
-    <div id="status-text" class="splash-status">جاري الاتصال الآمن بالمنظومة المركزية...</div>
+    <div class="splash-badge">النسخة المحدثة 2026 • ربط دائم ومباشر</div>
+    <div class="splash-loader" id="loader-spinner"></div>
+    <div id="status-text" class="splash-status">جاري فتح المنظومة المركزية المحدثة...</div>
+    <div id="action-area" style="margin-top: 10px;">
+      <a id="direct-link-btn" class="direct-btn" href="https://military-maintenance-app.streamlit.app" target="_blank" rel="noopener">
+        🚀 الدخول المباشر إلى المنظومة (Streamlit Cloud)
+      </a>
+    </div>
   </div>
 
   <!-- إطار التطبيق الحي المحدث بالكامل -->
-  <iframe id="app-frame" src="https://vermont-cached-behavioral-gcc.trycloudflare.com" allow="fullscreen; clipboard-read; clipboard-write; geolocation" onload="onAppLoaded()"></iframe>
+  <iframe id="app-frame" src="https://military-maintenance-app.streamlit.app?embed=true" allow="fullscreen; clipboard-read; clipboard-write; geolocation" onload="onAppLoaded()"></iframe>
 
   <script>
+    const DEFAULT_APP_URL = "https://military-maintenance-app.streamlit.app?embed=true";
+    const urlParams = new URLSearchParams(window.location.search);
+    const customSrc = urlParams.get('src') || urlParams.get('url');
+    const frame = document.getElementById('app-frame');
+    const directBtn = document.getElementById('direct-link-btn');
+
+    if (customSrc) {
+      frame.src = decodeURIComponent(customSrc);
+      directBtn.href = decodeURIComponent(customSrc);
+    }
+
     // عند تحميل التطبيق بنجاح يتم إخفاء شاشة البداية
     function onAppLoaded() {
       const splash = document.getElementById('splash-screen');
       if (splash) {
-        document.getElementById('status-text').innerText = 'تم الاتصال بنجاح! جاري فتح المنظومة...';
+        document.getElementById('status-text').innerText = 'تم الاتصال بنجاح! جاري عرض الواجهة...';
         setTimeout(() => {
           splash.style.opacity = '0';
           splash.style.visibility = 'hidden';
-        }, 600);
+        }, 500);
       }
     }
     
-    // حد أقصى للانتظار قبل الإخفاء التلقائي
+    // حد أقصى للانتظار قبل الإخفاء التلقائي للشاشة الترحيبية
     setTimeout(() => {
       onAppLoaded();
-    }, 4500);
+    }, 3500);
 
     // تسجيل Service Worker للـ PWA
     if ('serviceWorker' in navigator) {
