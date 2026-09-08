@@ -984,14 +984,21 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
             else:
                 st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك استيراد كشف الفنيين من ملف Excel أدناه أو إضافة فنيين من شاشة إدارة المرتبات.")
 
-            # أزرار الإجراءات (تصدير واستيراد)
-            exp_col1, exp_col2 = st.columns([1, 1])
-            with exp_col1:
+            st.markdown("---")
+
+            # شريط الأزرار الملونة للعمليات السريعة بجانب بعضها
+            st.markdown("##### ⚡ العمليات والإجراءات السريعة للمفرزة:")
+
+            act_col1, act_col2, act_col3, act_col4, act_col5 = st.columns(5)
+
+            curr_action_key = f"active_det_action_{selected_id}"
+            curr_action = st.session_state.get(curr_action_key, None)
+
+            with act_col1:
                 if not tech_df.empty:
-                    # زر تصدير كشف المفرزة بصيغة Excel
                     excel_data = export_to_excel(tech_df, sheet_name=f"كشف {selected_detachment['governorate']}")
                     file_name = f"كشف_مرتبات_{selected_detachment['hospital_name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                    export_btn_label = settings.get("btn_export_label", "📥 تصدير الكشف إلى Excel")
+                    export_btn_label = settings.get("btn_export_label", "📊 تصدير الكشف Excel")
                     st.download_button(
                         label=export_btn_label,
                         data=excel_data,
@@ -1000,10 +1007,13 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                         key=f"dl_det_{selected_id}",
                         use_container_width=True
                     )
-            with exp_col2:
+                else:
+                    st.button("📊 تصدير الكشف Excel", disabled=True, key=f"dl_det_dis_{selected_id}", use_container_width=True)
+
+            with act_col2:
                 template_bytes = db.generate_technicians_template()
                 st.download_button(
-                    label="📄 تحميل قالب Excel قياسي للاستيراد",
+                    label="📄 تحميل قالب Excel",
                     data=template_bytes,
                     file_name="قالب_استيراد_فنيي_المفرزة.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1011,114 +1021,158 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                     use_container_width=True
                 )
 
-            st.markdown("---")
+            with act_col3:
+                btn_add_text = "➕ إضافة فني جديد" if curr_action != "add" else "✖️ إغلاق الإضافة"
+                if st.button(btn_add_text, key=f"btn_act_add_{selected_id}", use_container_width=True):
+                    st.session_state[curr_action_key] = "add" if curr_action != "add" else None
+                    st.rerun()
 
-            # قسم إدارة وتعديل الفنيين وإضافة الملاحظات (متاح لقائد المفرزة ورئيس الفرع)
-            t_col1, t_col2 = st.columns(2)
-            
-            with t_col1:
-                with st.expander("✏️ تعديل بيانات فني وإضافة الملاحظات والتقييم الفني", expanded=False):
-                    if not tech_df.empty:
-                        tech_list = db.get_all_technicians_df(apply_custom_columns=False)
-                        det_techs = tech_list[tech_list["detachment_id"] == selected_id]
-                        
-                        if not det_techs.empty:
-                            tech_select_map = {
-                                f"{t['الرتبة']} / {t['الاسم الرباعي']} (الرقم: {t['الرقم العسكري']})": t['الرقم العسكري']
-                                for _, t in det_techs.iterrows()
-                            }
-                            selected_t_label = st.selectbox("اختر الفني للتعديل أو إضافة الملاحظات والتقييم:", options=list(tech_select_map.keys()), key=f"sel_edit_tech_{selected_id}")
-                            target_mil_id = tech_select_map[selected_t_label]
-                            target_tech = db.get_technician_by_id(target_mil_id)
-                            
-                            if target_tech:
-                                with st.form(key=f"form_edit_tech_{selected_id}_{target_mil_id}"):
-                                    ef_c1, ef_c2 = st.columns(2)
-                                    with ef_c1:
-                                        st.text_input("الرقم العسكري (ثابت):", value=target_tech['military_id'], disabled=True)
-                                        t_name = st.text_input("الاسم الرباعي الكامل *:", value=target_tech['full_name'])
-                                        t_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(target_tech['rank']) if target_tech['rank'] in MILITARY_RANKS else 0)
-                                        t_spec = st.selectbox("الصنف / التخصص الفني *:", options=MILITARY_CATEGORIES, index=MILITARY_CATEGORIES.index(target_tech['specialty']) if target_tech['specialty'] in MILITARY_CATEGORIES else 0)
-                                    with ef_c2:
-                                        t_job = st.text_input("المهنة / الواجب الحالي بالمفرزة:", value=target_tech['current_job'] or '')
-                                        t_res = st.selectbox("مكان السكن:", options=GOVERNORATES, index=GOVERNORATES.index(target_tech['residence']) if target_tech['residence'] in GOVERNORATES else 0)
-                                        t_phone = st.text_input("رقم هاتف الفني للتواصل:", value=target_tech['phone_number'] or '')
-                                        try:
-                                            parsed_jdate = datetime.strptime(target_tech['join_date'], "%Y-%m-%d").date() if target_tech['join_date'] else date.today()
-                                        except Exception:
-                                            parsed_jdate = date.today()
-                                        t_jdate = st.date_input("تاريخ الالتحاق بالمفرزة:", value=parsed_jdate)
-                                        
-                                    t_notes = st.text_area("📋 الملاحظات والتقييم الفني وسلوك الفني:", value=target_tech['evaluation_and_notes'] or '', placeholder="أدخل تقييم قائد المفرزة، مستوى الانضباط، الكفاءة الفنية، أو أي ملاحظات هامة...")
-                                    
-                                    save_tech_btn = st.form_submit_button("💾 حفظ تعديلات الفني والملاحظات والتقييم", type="primary", use_container_width=True)
-                                    if save_tech_btn:
-                                        ok_u, err_u = db.update_technician(
-                                            target_mil_id,
-                                            t_rank,
-                                            t_name.strip(),
-                                            t_spec,
-                                            t_job.strip(),
-                                            t_res,
-                                            selected_id,
-                                            str(t_jdate),
-                                            t_phone.strip(),
-                                            t_notes.strip()
-                                        )
-                                        if ok_u:
-                                            st.toast("✅ تم حفظ وتحديث بيانات الفني وملاحظاته بنجاح!", icon="💾")
-                                            st.success("✅ تم تحديث بيانات الفني بنجاح!")
-                                            st.rerun()
-                                        else:
-                                            st.error(f"❌ تعذر التحديث: {err_u}")
+            with act_col4:
+                btn_edit_text = "✏️ تعديل بيانات فني" if curr_action != "edit" else "✖️ إغلاق التعديل"
+                if st.button(btn_edit_text, key=f"btn_act_edit_{selected_id}", use_container_width=True):
+                    st.session_state[curr_action_key] = "edit" if curr_action != "edit" else None
+                    st.rerun()
 
-            with t_col2:
-                with st.expander(f"➕ إضافة وتسجيل فني جديد بمفرزة ({selected_detachment['hospital_name']})", expanded=False):
-                    with st.form(key=f"form_add_tech_det_{selected_id}", clear_on_submit=True):
-                        af_c1, af_c2 = st.columns(2)
-                        with af_c1:
-                            new_m_id = st.text_input("الرقم العسكري *:")
-                            new_m_name = st.text_input("الاسم الرباعي الكامل *:")
-                            new_m_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=len(MILITARY_RANKS)-3, key=f"add_rnk_{selected_id}")
-                            new_m_spec = st.selectbox("الصنف الفني *:", options=MILITARY_CATEGORIES, key=f"add_spc_{selected_id}")
-                        with af_c2:
-                            new_m_job = st.text_input("المهنة الحالية بالمفرزة:", key=f"add_job_{selected_id}")
-                            new_m_res = st.selectbox("مكان السكن:", options=GOVERNORATES, key=f"add_res_{selected_id}")
-                            new_m_ph = st.text_input("رقم الهاتف:", key=f"add_ph_{selected_id}")
-                            new_m_jd = st.date_input("تاريخ الالتحاق بالمفرزة:", value=date.today(), key=f"add_jd_{selected_id}")
-                            
-                        new_m_notes = st.text_area("الملاحظات والتقييم الأولي:", key=f"add_nt_{selected_id}")
+            with act_col5:
+                btn_import_text = "📥 استيراد كشف Excel" if curr_action != "import" else "✖️ إغلاق الاستيراد"
+                if st.button(btn_import_text, key=f"btn_act_import_{selected_id}", use_container_width=True):
+                    st.session_state[curr_action_key] = "import" if curr_action != "import" else None
+                    st.rerun()
+
+            # لوحة العمليات التفاعلية النشطة
+            if curr_action == "add":
+                st.markdown(f"""
+                <div class="action-panel-container add">
+                    <div class="action-panel-header">
+                        <div class="action-panel-title">➕ نموذج تسجيل وإلحاق فني جديد بمفرزة ({selected_detachment['hospital_name']})</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                with st.form(key=f"form_add_tech_det_{selected_id}", clear_on_submit=True):
+                    af_c1, af_c2 = st.columns(2)
+                    with af_c1:
+                        new_m_id = st.text_input("الرقم العسكري *:", placeholder="أدخل الرقم العسكري...")
+                        new_m_name = st.text_input("الاسم الرباعي الكامل *:", placeholder="أدخل الاسم الرباعي...")
+                        new_m_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=len(MILITARY_RANKS)-3, key=f"add_rnk_{selected_id}")
+                        new_m_spec = st.selectbox("الصنف الفني *:", options=MILITARY_CATEGORIES, key=f"add_spc_{selected_id}")
+                    with af_c2:
+                        new_m_job = st.text_input("المهنة الحالية بالمفرزة:", placeholder="مثال: فني تكييف / صيانة عامة...", key=f"add_job_{selected_id}")
+                        new_m_res = st.selectbox("مكان السكن:", options=GOVERNORATES, key=f"add_res_{selected_id}")
+                        new_m_ph = st.text_input("رقم الهاتف:", placeholder="07XXXXXXXX", key=f"add_ph_{selected_id}")
+                        new_m_jd = st.date_input("تاريخ الالتحاق بالمفرزة:", value=date.today(), key=f"add_jd_{selected_id}")
                         
-                        add_tech_btn = st.form_submit_button("💾 إضافة الفني إلى مرتب المفرزة", type="primary", use_container_width=True)
-                        if add_tech_btn:
-                            if not new_m_id.strip() or not new_m_name.strip():
-                                st.error("يرجى إدخال الرقم العسكري والاسم الرباعي (*).")
+                    new_m_notes = st.text_area("الملاحظات والتقييم الأولي:", placeholder="أدخل أي ملاحظات أو تقييم فني...", key=f"add_nt_{selected_id}")
+                    
+                    sub_c1, sub_c2 = st.columns([2, 1])
+                    with sub_c1:
+                        add_tech_btn = st.form_submit_button("💾 حفظ وتسجيل الفني بالمفرزة", type="primary", use_container_width=True)
+                    with sub_c2:
+                        pass
+
+                    if add_tech_btn:
+                        if not new_m_id.strip() or not new_m_name.strip():
+                            st.error("يرجى إدخال الرقم العسكري والاسم الرباعي (*).")
+                        else:
+                            ok_a, err_a = db.add_technician(
+                                new_m_id.strip(),
+                                new_m_rank,
+                                new_m_name.strip(),
+                                new_m_spec,
+                                new_m_job.strip(),
+                                new_m_res,
+                                selected_id,
+                                str(new_m_jd),
+                                new_m_ph.strip(),
+                                new_m_notes.strip()
+                            )
+                            if ok_a:
+                                st.toast("✅ تم تسجيل الفني بنجاح!", icon="🎉")
+                                st.success("✅ تم تسجيل وإلحاق الفني بالمفرزة بنجاح!")
+                                st.session_state[curr_action_key] = None
+                                st.rerun()
                             else:
-                                ok_a, err_a = db.add_technician(
-                                    new_m_id.strip(),
-                                    new_m_rank,
-                                    new_m_name.strip(),
-                                    new_m_spec,
-                                    new_m_job.strip(),
-                                    new_m_res,
-                                    selected_id,
-                                    str(new_m_jd),
-                                    new_m_ph.strip(),
-                                    new_m_notes.strip()
-                                )
-                                if ok_a:
-                                    st.toast("✅ تم تسجيل الفني بنجاح!", icon="🎉")
-                                    st.success("✅ تم تسجيل وإلحاق الفني بالمفرزة بنجاح!")
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ {err_a}")
+                                st.error(f"❌ {err_a}")
 
-            # 2.4 قسم استيراد كشف المرتبات من ملف Excel
-            with st.expander(f"📤 استيراد كشف فنيين من ملف Excel لمفرزة ({selected_detachment['hospital_name']})", expanded=False):
+            elif curr_action == "edit":
+                st.markdown(f"""
+                <div class="action-panel-container edit">
+                    <div class="action-panel-header">
+                        <div class="action-panel-title">✏️ تعديل بيانات فني وإضافة الملاحظات والتقييم لمفرزة ({selected_detachment['hospital_name']})</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if not tech_df.empty:
+                    tech_list = db.get_all_technicians_df(apply_custom_columns=False)
+                    det_techs = tech_list[tech_list["detachment_id"] == selected_id]
+                    
+                    if not det_techs.empty:
+                        tech_select_map = {
+                            f"{t['الرتبة']} / {t['الاسم الرباعي']} (الرقم: {t['الرقم العسكري']})": t['الرقم العسكري']
+                            for _, t in det_techs.iterrows()
+                        }
+                        selected_t_label = st.selectbox("اختر الفني للتعديل أو إضافة الملاحظات والتقييم:", options=list(tech_select_map.keys()), key=f"sel_edit_tech_{selected_id}")
+                        target_mil_id = tech_select_map[selected_t_label]
+                        target_tech = db.get_technician_by_id(target_mil_id)
+                        
+                        if target_tech:
+                            with st.form(key=f"form_edit_tech_{selected_id}_{target_mil_id}"):
+                                ef_c1, ef_c2 = st.columns(2)
+                                with ef_c1:
+                                    st.text_input("الرقم العسكري (ثابت):", value=target_tech['military_id'], disabled=True)
+                                    t_name = st.text_input("الاسم الرباعي الكامل *:", value=target_tech['full_name'])
+                                    t_rank = st.selectbox("الرتبة العسكرية *:", options=MILITARY_RANKS, index=MILITARY_RANKS.index(target_tech['rank']) if target_tech['rank'] in MILITARY_RANKS else 0)
+                                    t_spec = st.selectbox("الصنف / التخصص الفني *:", options=MILITARY_CATEGORIES, index=MILITARY_CATEGORIES.index(target_tech['specialty']) if target_tech['specialty'] in MILITARY_CATEGORIES else 0)
+                                with ef_c2:
+                                    t_job = st.text_input("المهنة / الواجب الحالي بالمفرزة:", value=target_tech['current_job'] or '')
+                                    t_res = st.selectbox("مكان السكن:", options=GOVERNORATES, index=GOVERNORATES.index(target_tech['residence']) if target_tech['residence'] in GOVERNORATES else 0)
+                                    t_phone = st.text_input("رقم هاتف الفني للتواصل:", value=target_tech['phone_number'] or '')
+                                    try:
+                                        parsed_jdate = datetime.strptime(target_tech['join_date'], "%Y-%m-%d").date() if target_tech['join_date'] else date.today()
+                                    except Exception:
+                                        parsed_jdate = date.today()
+                                    t_jdate = st.date_input("تاريخ الالتحاق بالمفرزة:", value=parsed_jdate)
+                                    
+                                t_notes = st.text_area("📋 الملاحظات والتقييم الفني وسلوك الفني:", value=target_tech['evaluation_and_notes'] or '', placeholder="أدخل تقييم قائد المفرزة، مستوى الانضباط، الكفاءة الفنية، أو أي ملاحظات هامة...")
+                                
+                                save_tech_btn = st.form_submit_button("💾 حفظ تعديلات الفني والملاحظات والتقييم", type="primary", use_container_width=True)
+                                if save_tech_btn:
+                                    ok_u, err_u = db.update_technician(
+                                        target_mil_id,
+                                        t_rank,
+                                        t_name.strip(),
+                                        t_spec,
+                                        t_job.strip(),
+                                        t_res,
+                                        selected_id,
+                                        str(t_jdate),
+                                        t_phone.strip(),
+                                        t_notes.strip()
+                                    )
+                                    if ok_u:
+                                        st.toast("✅ تم حفظ وتحديث بيانات الفني وملاحظاته بنجاح!", icon="💾")
+                                        st.success("✅ تم تحديث بيانات الفني بنجاح!")
+                                        st.session_state[curr_action_key] = None
+                                        st.rerun()
+                                    else:
+                                        st.error(f"❌ تعذر التحديث: {err_u}")
+                else:
+                    st.warning("⚠️ لا يوجد فنيين مسجلين بهذه المفرزة لتعديلهم.")
+
+            elif curr_action == "import":
+                st.markdown(f"""
+                <div class="action-panel-container import">
+                    <div class="action-panel-header">
+                        <div class="action-panel-title">📥 استيراد كشف فنيين من ملف Excel لمفرزة ({selected_detachment['hospital_name']})</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
                 st.markdown("""
-                <div style="font-size: 13px; color: #94A3B8; margin-bottom: 12px;">
-                    💡 يمكنك رفع ملف إكسل يحتوي على كشف مرتبات الفنيين وسيتم إلحاقهم مباشرة بهذه المفرزة.
-                    الأعمدة المدعومة: <b>الرقم العسكري *، الرتبة، الاسم الرباعي *، الصنف، المهنة الحالية، مكان السكن، تاريخ الالتحاق بالمفرزة، رقم الهاتف، الملاحظات</b>.
+                <div style="font-size: 13.5px; color: #475569; margin-bottom: 12px; direction: rtl; text-align: right;">
+                    💡 ارفع ملف Excel يحتوي على كشف المرتبات، وسيتم إلحاقهم بالمفرزة مباشرة.<br>
+                    الأعمدة المدعومة: <b>الرقم العسكري *، الرتبة، الاسم الرباعي *، الصنف، المهنة الحالية، مكان السكن، تاريخ الالتحاق، رقم الهاتف، الملاحظات</b>.
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -1210,6 +1264,7 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                                             for err in res["errors"]:
                                                 st.write(f"• {err}")
                                     st.toast("✅ تم استيراد كشف المفرزة بنجاح!", icon="🛡️")
+                                    st.session_state[curr_action_key] = None
                                     st.rerun()
                                 else:
                                     st.error("❌ فشلت عملية الاستيراد:")

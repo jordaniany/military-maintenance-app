@@ -714,6 +714,99 @@ def apply_custom_styles():
         direction: rtl !important;
         text-align: right !important;
     }
+
+    /* شريط الأزرار الملونة للعمليات السريعة */
+    .action-toolbar-container {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin: 16px 0 20px 0;
+        box-shadow: 0 4px 15px rgba(15, 23, 42, 0.05);
+        direction: rtl !important;
+    }
+
+    .action-panel-container {
+        border-radius: 14px;
+        padding: 22px;
+        margin-top: 16px;
+        margin-bottom: 24px;
+        direction: rtl !important;
+        text-align: right !important;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+        border: 1px solid #E2E8F0;
+    }
+
+    .action-panel-container.add {
+        background: #F0FDF4;
+        border-top: 5px solid #16A34A;
+    }
+
+    .action-panel-container.edit {
+        background: #FFFBEB;
+        border-top: 5px solid #D97706;
+    }
+
+    .action-panel-container.import {
+        background: #FAF5FF;
+        border-top: 5px solid #7E22CE;
+    }
+
+    .action-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px dashed #CBD5E1;
+    }
+
+    .action-panel-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0F172A;
+    }
+
+    /* تلوين أزرار العمليات المحددة عبر الـ keys */
+    div[data-testid="stDownloadButton"]:has(button[key*="dl_det_"]) button {
+        background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid #0284C7 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 3px 10px rgba(2, 132, 199, 0.3) !important;
+    }
+
+    div[data-testid="stDownloadButton"]:has(button[key*="dl_tpl_"]) button {
+        background: linear-gradient(135deg, #475569 0%, #334155 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid #475569 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 3px 10px rgba(71, 85, 105, 0.25) !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key*="btn_act_add_"]) button {
+        background: linear-gradient(135deg, #16A34A 0%, #15803D 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid #16A34A !important;
+        font-weight: 700 !important;
+        box-shadow: 0 3px 10px rgba(22, 163, 74, 0.3) !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key*="btn_act_edit_"]) button {
+        background: linear-gradient(135deg, #D97706 0%, #B45309 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid #D97706 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 3px 10px rgba(217, 119, 6, 0.3) !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key*="btn_act_import_"]) button {
+        background: linear-gradient(135deg, #7E22CE 0%, #6D28D9 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid #7E22CE !important;
+        font-weight: 700 !important;
+        box-shadow: 0 3px 10px rgba(126, 34, 206, 0.3) !important;
+    }
     </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
