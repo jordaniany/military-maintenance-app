@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="refresh" content="1; url=https://military-maintenance-app.streamlit.app">
   <meta name="description" content="منظومة إدارة القوى البشرية ومرتبات مفارز صيانة المستشفيات العسكرية بالمحافظات - مديرية الخدمات الطبية الملكية">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -27,107 +28,119 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #0F172A;
+      background: radial-gradient(circle at center, #1E293B 0%, #0F172A 100%);
       direction: rtl;
-    }
-    
-    #splash-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 9999;
       color: #FFFFFF;
-      transition: opacity 0.5s ease, visibility 0.5s ease;
-      padding: 24px;
-      text-align: center;
     }
     
-    .splash-logo {
-      font-size: 60px;
+    .portal-card {
+      width: 90%;
+      max-width: 480px;
+      background: rgba(30, 41, 59, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      padding: 36px 28px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      animation: fadeIn 0.6s ease-out;
+    }
+    
+    .emblem {
+      font-size: 58px;
       margin-bottom: 16px;
-      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+      filter: drop-shadow(0 4px 14px rgba(0,0,0,0.5));
       animation: pulse 2s infinite ease-in-out;
     }
     
-    .splash-title {
-      font-size: 24px;
+    .title {
+      font-size: 22px;
       font-weight: 900;
       color: #F8FAFC;
       margin-bottom: 6px;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
     
-    .splash-subtitle {
+    .subtitle {
       font-size: 14.5px;
       font-weight: 600;
       color: #94A3B8;
       margin-bottom: 20px;
     }
     
-    .splash-badge {
+    .badge {
       display: inline-block;
       background: rgba(21, 128, 61, 0.25);
       border: 1px solid #16A34A;
       color: #86EFAC;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 700;
-      padding: 6px 18px;
+      padding: 5px 16px;
       border-radius: 20px;
       margin-bottom: 24px;
     }
     
-    .splash-loader {
-      width: 44px;
-      height: 44px;
-      border: 4px solid rgba(255, 255, 255, 0.15);
-      border-top: 4px solid #38BDF8;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-bottom: 16px;
+    .loader-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 24px;
     }
     
-    .splash-status {
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 4px solid rgba(255, 255, 255, 0.12);
+      border-top: 4px solid #38BDF8;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 14px;
+    }
+    
+    .status-text {
       font-size: 13.5px;
       color: #CBD5E1;
       font-weight: 600;
-      margin-bottom: 16px;
     }
-
-    .direct-btn {
-      display: inline-flex;
+    
+    .action-btn {
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
+      width: 100%;
       background: linear-gradient(135deg, #1E40AF 0%, #0284C7 100%);
       color: #FFFFFF;
       text-decoration: none;
-      font-size: 14px;
-      font-weight: 700;
-      padding: 10px 22px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
-      transition: all 0.2s ease;
+      font-size: 15px;
+      font-weight: 800;
+      padding: 14px 24px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.4);
+      transition: all 0.25s ease;
       cursor: pointer;
     }
-    .direct-btn:hover {
+    
+    .action-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
+      box-shadow: 0 8px 25px rgba(2, 132, 199, 0.6);
+      background: linear-gradient(135deg, #1D4ED8 0%, #0369A1 100%);
     }
     
-    #app-frame {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-      background-color: #0F172A;
+    .action-btn:active {
+      transform: translateY(0);
+    }
+    
+    .footer-note {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #64748B;
+      font-weight: 500;
     }
     
     @keyframes spin {
@@ -137,60 +150,49 @@
     
     @keyframes pulse {
       0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.06); }
+      50% { transform: scale(1.05); }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
 
-  <!-- شاشة الترحيب العسكرية الذكية -->
-  <div id="splash-screen">
-    <div class="splash-logo">🛡️ ⚙️ 🏥</div>
-    <div class="splash-title">مديرية الخدمات الطبية الملكية</div>
-    <div class="splash-subtitle">شعبة صيانة المستشفيات - نظام إدارة المفارز والموجود الصباحي</div>
-    <div class="splash-badge">النسخة المحدثة 2026 • ربط دائم ومباشر</div>
-    <div class="splash-loader" id="loader-spinner"></div>
-    <div id="status-text" class="splash-status">جاري فتح المنظومة المركزية المحدثة...</div>
-    <div id="action-area" style="margin-top: 10px;">
-      <a id="direct-link-btn" class="direct-btn" href="https://military-maintenance-app.streamlit.app" target="_blank" rel="noopener">
-        🚀 الدخول المباشر إلى المنظومة (Streamlit Cloud)
-      </a>
+  <div class="portal-card">
+    <div class="emblem">🛡️ ⚙️ 🏥</div>
+    <div class="title">مديرية الخدمات الطبية الملكية</div>
+    <div class="subtitle">شعبة صيانة المستشفيات - نظام المفارز والموجود الصباحي</div>
+    <div class="badge">النسخة السحابية المحدثة 2026</div>
+    
+    <div class="loader-container">
+      <div class="spinner"></div>
+      <div id="status-msg" class="status-text">جاري تحويلك تلقائياً إلى المنظومة المركزية...</div>
+    </div>
+    
+    <a id="launch-btn" class="action-btn" href="https://military-maintenance-app.streamlit.app">
+      <span>🚀</span>
+      <span>الدخول المباشر إلى المنظومة</span>
+    </a>
+    
+    <div class="footer-note">
+      المنظومة مؤمنة وتعمل على مدار الساعة بتزامن كامل
     </div>
   </div>
 
-  <!-- إطار التطبيق الحي المحدث بالكامل -->
-  <iframe id="app-frame" src="https://military-maintenance-app.streamlit.app?embed=true" allow="fullscreen; clipboard-read; clipboard-write; geolocation" onload="onAppLoaded()"></iframe>
-
   <script>
-    const DEFAULT_APP_URL = "https://military-maintenance-app.streamlit.app?embed=true";
-    const urlParams = new URLSearchParams(window.location.search);
-    const customSrc = urlParams.get('src') || urlParams.get('url');
-    const frame = document.getElementById('app-frame');
-    const directBtn = document.getElementById('direct-link-btn');
-
-    if (customSrc) {
-      frame.src = decodeURIComponent(customSrc);
-      directBtn.href = decodeURIComponent(customSrc);
-    }
-
-    // عند تحميل التطبيق بنجاح يتم إخفاء شاشة البداية
-    function onAppLoaded() {
-      const splash = document.getElementById('splash-screen');
-      if (splash) {
-        document.getElementById('status-text').innerText = 'تم الاتصال بنجاح! جاري عرض الواجهة...';
-        setTimeout(() => {
-          splash.style.opacity = '0';
-          splash.style.visibility = 'hidden';
-        }, 500);
-      }
+    const TARGET_URL = "https://military-maintenance-app.streamlit.app";
+    
+    // التحويل التلقائي المباشر وفوراً بدون نافذة إطار محظورة
+    try {
+      window.location.replace(TARGET_URL);
+    } catch(e) {
+      window.location.href = TARGET_URL;
     }
     
-    // حد أقصى للانتظار قبل الإخفاء التلقائي للشاشة الترحيبية
-    setTimeout(() => {
-      onAppLoaded();
-    }, 3500);
-
-    // تسجيل Service Worker للـ PWA
+    // تسجيل الـ Service Worker لتمكين تثبيت التطبيق PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(err => {});
