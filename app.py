@@ -88,7 +88,7 @@ if not st.session_state.get("authenticated", False):
     
     _, login_col, _ = st.columns([1, 2, 1])
     with login_col:
-        st.markdown("""<div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #F8FAFC; padding: 24px 20px; border-radius: 14px 14px 0 0; text-align: center; border-bottom: 4px solid #15803D; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); direction: rtl;"><div style="font-size: 42px; margin-bottom: 6px;">🛡️ ⚙️ 🏥</div><div style="font-size: 22px; font-weight: 900; color: #F8FAFC; letter-spacing: 0.5px;">مديرية الخدمات الطبية الملكية</div><div style="font-size: 13.5px; color: #94A3B8; font-weight: 600; margin-top: 4px;">شعبة صيانة المستشفيات - نظام إدارة المفارز والقوى البشرية والموجود الصباحي</div></div>""", unsafe_allow_html=True)
+        st.markdown("""<div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #F8FAFC; padding: 24px 20px; border-radius: 14px 14px 0 0; text-align: center; border-bottom: 4px solid #15803D; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); direction: rtl;"><div style="font-size: 42px; margin-bottom: 6px;">🛡️ ⚙️ 🏥</div><div style="font-size: 22px; font-weight: 900; color: #F8FAFC; letter-spacing: 0.5px;">شعبة صيانة المستشفيات العسكرية</div><div style="font-size: 13.5px; color: #94A3B8; font-weight: 600; margin-top: 4px;">فرع صيانة المستشفيات العسكرية</div></div>""", unsafe_allow_html=True)
         
         with st.form(key="login_gateway_form"):
             st.markdown("##### 🔐 تسجيل الدخول إلى المنظومة بواسطة الرقم العسكري:")
