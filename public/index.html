@@ -13,19 +13,25 @@
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   
   <style>
     :root {
-      --bg-dark: #0B1120;
-      --card-bg: rgba(17, 24, 39, 0.88);
-      --card-border: rgba(255, 255, 255, 0.1);
-      --primary-blue: #0284C7;
-      --primary-navy: #1E3A8A;
-      --military-green: #15803D;
-      --gold-accent: #F59E0B;
+      --bg-dark: #090E17;
+      --bg-card: rgba(17, 24, 39, 0.92);
+      --bg-card-sub: rgba(30, 41, 59, 0.7);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      --primary: #0284C7;
+      --primary-dark: #0369A1;
+      --navy: #1E3A8A;
+      --emerald: #16A34A;
+      --amber: #D97706;
+      --purple: #7E22CE;
       --text-main: #F8FAFC;
       --text-muted: #94A3B8;
+      --radius-lg: 20px;
+      --radius-md: 12px;
     }
 
     * {
@@ -33,68 +39,89 @@
       margin: 0;
       padding: 0;
       font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
     
     body {
       min-height: 100vh;
-      background: radial-gradient(circle at 50% 20%, #1E293B 0%, #0B1120 100%);
+      background: radial-gradient(ellipse at top, #1E293B 0%, #090E17 100%);
       color: var(--text-main);
       direction: rtl;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
-      overflow-x: hidden;
+      justify-content: flex-start;
+      padding: 30px 16px 40px;
     }
-    
-    .portal-container {
+
+    .app-shell {
       width: 100%;
-      max-width: 680px;
-      background: var(--card-bg);
+      max-width: 820px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    /* البانر العسكري الرئيسي */
+    .hero-card {
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 58, 138, 0.35) 100%);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--card-border);
-      border-radius: 24px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
-      overflow: hidden;
-      animation: fadeIn 0.5s ease-out;
-    }
-
-    /* رأس الصفحة */
-    .portal-header {
-      background: linear-gradient(180deg, rgba(30, 58, 138, 0.3) 0%, rgba(15, 23, 42, 0) 100%);
-      padding: 32px 24px 20px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px;
       text-align: center;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
     }
 
-    .emblem-wrapper {
+    .hero-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #15803D 0%, #0284C7 50%, #D97706 100%);
+    }
+
+    .insignia-box {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 12px;
-      font-size: 40px;
+      font-size: 42px;
       margin-bottom: 12px;
-      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+      filter: drop-shadow(0 6px 16px rgba(0,0,0,0.5));
+      animation: pulse 2.5s infinite ease-in-out;
     }
 
-    .main-title {
-      font-size: 24px;
+    .main-heading {
+      font-size: 26px;
       font-weight: 900;
       color: #FFFFFF;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.5px;
       margin-bottom: 4px;
     }
 
-    .sub-title {
-      font-size: 15px;
+    .sub-heading {
+      font-size: 16px;
       font-weight: 700;
       color: #38BDF8;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
 
-    .system-badge {
+    .badge-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .military-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -107,35 +134,49 @@
       border-radius: 9999px;
     }
 
-    .badge-dot {
+    .status-dot {
       width: 8px;
       height: 8px;
       background-color: #22C55E;
       border-radius: 50%;
-      box-shadow: 0 0 8px #22C55E;
-      animation: blink 2s infinite ease-in-out;
+      box-shadow: 0 0 10px #22C55E;
+      animation: blink 1.8s infinite ease-in-out;
     }
 
-    /* المحتوى وجسم البطاقة */
-    .portal-body {
+    /* منطقة أزرار الإطلاق المركزية */
+    .launch-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
       padding: 24px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.4);
     }
 
-    /* أزرار الإطلاق المباشر */
-    .launch-section {
+    .launch-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #E2E8F0;
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .launch-actions {
+      display: grid;
+      grid-template-columns: 1fr;
       gap: 12px;
     }
 
-    .btn-primary {
+    .btn-launch-primary {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 12px;
       width: 100%;
       background: linear-gradient(135deg, #1E40AF 0%, #0284C7 100%);
       color: #FFFFFF;
@@ -143,265 +184,357 @@
       font-size: 16px;
       font-weight: 800;
       padding: 16px 24px;
-      border-radius: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 8px 25px rgba(2, 132, 199, 0.35);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 8px 25px rgba(2, 132, 199, 0.4);
       transition: all 0.2s ease;
       cursor: pointer;
     }
 
-    .btn-primary:hover {
+    .btn-launch-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 12px 30px rgba(2, 132, 199, 0.5);
+      box-shadow: 0 12px 30px rgba(2, 132, 199, 0.6);
       background: linear-gradient(135deg, #1D4ED8 0%, #0369A1 100%);
     }
 
-    .btn-primary:active {
-      transform: translateY(0);
-    }
-
-    /* صندوق الدليل السريع */
-    .guide-card {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      padding: 18px;
-    }
-
-    .guide-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    .guide-title {
-      font-size: 13.5px;
-      font-weight: 800;
-      color: #F8FAFC;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .pwd-badge {
-      background: rgba(245, 158, 11, 0.15);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      color: #FCD34D;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 10px;
-      border-radius: 6px;
-    }
-
-    .credentials-grid {
+    /* صندوق المفارز والمحافظات */
+    .detachments-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
     }
 
-    .cred-item {
-      background: rgba(30, 41, 59, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.04);
-      border-radius: 10px;
-      padding: 10px 12px;
+    .detach-item {
+      background: var(--bg-card-sub);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      transition: all 0.2s ease;
     }
 
-    .cred-info {
+    .detach-item:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(30, 41, 59, 0.9);
+      transform: translateY(-1px);
+    }
+
+    .detach-item.chief {
+      border-color: rgba(2, 132, 199, 0.4);
+      background: rgba(2, 132, 199, 0.12);
+    }
+
+    .detach-item.karak {
+      border-color: rgba(34, 197, 94, 0.4);
+      background: rgba(34, 197, 94, 0.12);
+    }
+
+    .detach-info {
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
 
-    .cred-role {
-      font-size: 12px;
-      font-weight: 700;
-      color: #E2E8F0;
-    }
-
-    .cred-name {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .cred-num {
-      background: rgba(2, 132, 199, 0.2);
-      border: 1px solid rgba(2, 132, 199, 0.4);
-      color: #7DD3FC;
-      font-family: monospace, sans-serif;
-      font-size: 13px;
+    .detach-name {
+      font-size: 13.5px;
       font-weight: 800;
-      padding: 3px 8px;
-      border-radius: 6px;
+      color: #F8FAFC;
+    }
+
+    .detach-leader {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .mil-id-badge {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #7DD3FC;
+      font-family: 'Courier New', monospace, sans-serif;
+      font-size: 13.5px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 8px;
       letter-spacing: 0.5px;
     }
 
-    /* تنبيه صلاحية الدخول */
-    .access-notice {
-      background: rgba(30, 58, 138, 0.2);
-      border: 1px dashed rgba(56, 189, 248, 0.3);
-      border-radius: 14px;
-      padding: 14px 16px;
+    /* بطاقة حل مشكلة الوصول السحابي */
+    .troubleshoot-card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
       display: flex;
+      flex-direction: column;
       gap: 12px;
-      align-items: flex-start;
-      font-size: 12.5px;
-      line-height: 1.6;
-      color: #BAE6FD;
     }
 
-    .access-notice strong {
+    .troubleshoot-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #FCD34D;
+      font-size: 14.5px;
+      font-weight: 800;
+    }
+
+    .troubleshoot-text {
+      font-size: 13px;
+      line-height: 1.8;
+      color: #CBD5E1;
+    }
+
+    .troubleshoot-text strong {
       color: #FFFFFF;
+    }
+
+    .troubleshoot-steps {
+      margin-right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12.5px;
+      color: #94A3B8;
+    }
+
+    .url-input-box {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .url-input {
+      flex: 1;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #FFFFFF;
+      font-size: 13px;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .url-input:focus {
+      outline: none;
+      border-color: #38BDF8;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    }
+
+    .btn-save-url {
+      background: #15803D;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-save-url:hover {
+      background: #16A34A;
     }
 
     /* التذييل */
     .portal-footer {
-      background: rgba(11, 17, 32, 0.6);
-      padding: 16px;
       text-align: center;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      font-size: 12px;
+      font-size: 12.5px;
       color: #64748B;
       font-weight: 600;
+      margin-top: 10px;
     }
 
     @keyframes blink {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
+      50% { opacity: 0.35; transform: scale(0.85); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(16px); }
+      from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    @media (max-width: 480px) {
-      .portal-header { padding: 24px 16px 16px; }
-      .main-title { font-size: 20px; }
-      .portal-body { padding: 16px; }
-      .credentials-grid { grid-template-columns: 1fr; }
+    @media (max-width: 600px) {
+      body { padding: 16px 10px 30px; }
+      .hero-card { padding: 24px 16px; }
+      .main-heading { font-size: 21px; }
+      .sub-heading { font-size: 14.5px; }
+      .detachments-grid { grid-template-columns: 1fr; }
+      .url-input-box { flex-direction: column; }
     }
   </style>
 </head>
 <body>
 
-  <div class="portal-container">
-    <!-- رأس البوابة العسكرية -->
-    <div class="portal-header">
-      <div class="emblem-wrapper">
+  <div class="app-shell">
+    
+    <!-- البانر العسكري الترحيبي -->
+    <div class="hero-card">
+      <div class="insignia-box">
         <span>🛡️</span>
         <span>⚙️</span>
         <span>🏥</span>
       </div>
-      <h1 class="main-title">شعبة صيانة المستشفيات العسكرية</h1>
-      <div class="sub-title">فرع صيانة المستشفيات العسكرية</div>
-      <div class="system-badge">
-        <span class="badge-dot"></span>
-        <span>نظام إدارة المفارز والموجود الصباحي • النسخة المحدثة 2026</span>
+      <h1 class="main-heading">شعبة صيانة المستشفيات العسكرية</h1>
+      <div class="sub-heading">فرع صيانة المستشفيات العسكرية</div>
+      <div class="badge-bar">
+        <div class="military-pill">
+          <span class="status-dot"></span>
+          <span>منظومة المفارز والموجود الصباحي المركزية • 2026</span>
+        </div>
       </div>
     </div>
 
-    <!-- جسم البوابة -->
-    <div class="portal-body">
-      
-      <!-- زر الدخول المباشر -->
-      <div class="launch-section">
-        <a id="direct-launch-btn" class="btn-primary" href="https://military-maintenance-app.streamlit.app" target="_blank" rel="noopener">
+    <!-- بطاقة الوصول وتشغيل المنظومة -->
+    <div class="launch-card">
+      <div class="launch-title">
+        <span>🚀</span>
+        <span>بوابة التشغيل والدخول إلى المنظومة:</span>
+      </div>
+      <div class="launch-actions">
+        <a id="main-stream-btn" class="btn-launch-primary" href="https://military-maintenance-app.streamlit.app" target="_blank" rel="noopener">
           <span>🚀</span>
-          <span>الدخول المباشر إلى المنظومة المركزية (Streamlit)</span>
+          <span>الدخول المباشر إلى المنظومة (Streamlit Cloud)</span>
         </a>
       </div>
-
-      <!-- دليل أرقام الحسابات المعتمدة -->
-      <div class="guide-card">
-        <div class="guide-header">
-          <div class="guide-title">
-            <span>🔐</span>
-            <span>دليل تسجيل الدخول بالرقم العسكري:</span>
-          </div>
-          <div class="pwd-badge">كلمة المرور: 123456</div>
-        </div>
-
-        <div class="credentials-grid">
-          <!-- رئيس الفرع -->
-          <div class="cred-item" style="border-color: rgba(2, 132, 199, 0.3); background: rgba(2, 132, 199, 0.08);">
-            <div class="cred-info">
-              <span class="cred-role" style="color: #38BDF8;">👑 رئيس الفرع (صلاحية شاملة)</span>
-              <span class="cred-name">المقدم المهندس رامي سبع العيش</span>
-            </div>
-            <span class="cred-num">10001</span>
-          </div>
-
-          <!-- مفرزة مستشفى الأمير علي (الكرك) -->
-          <div class="cred-item" style="border-color: rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.08);">
-            <div class="cred-info">
-              <span class="cred-role" style="color: #4ADE80;">🏥 قائد مفرزة مستشفى الأمير علي</span>
-              <span class="cred-name">المقدم المهندسة منار (الكرك)</span>
-            </div>
-            <span class="cred-num">20002</span>
-          </div>
-
-          <!-- مفرزة مستشفى الأمير راشد (إربد) -->
-          <div class="cred-item">
-            <div class="cred-info">
-              <span class="cred-role">🏥 قائد مفرزة مستشفى الأمير راشد</span>
-              <span class="cred-name">إربد الشمال</span>
-            </div>
-            <span class="cred-num">20001</span>
-          </div>
-
-          <!-- مفرزة مستشفى الأمير هاشم (الزرقاء) -->
-          <div class="cred-item">
-            <div class="cred-info">
-              <span class="cred-role">🏥 قائد مفرزة مستشفى الأمير هاشم</span>
-              <span class="cred-name">الزرقاء</span>
-            </div>
-            <span class="cred-num">20003</span>
-          </div>
-
-          <!-- مفرزة مستشفى الأميرة هيا (جرش/عجلون) -->
-          <div class="cred-item">
-            <div class="cred-info">
-              <span class="cred-role">🏥 قائد مفرزة مستشفى الأميرة هيا</span>
-              <span class="cred-name">جرش / عجلون</span>
-            </div>
-            <span class="cred-num">20004</span>
-          </div>
-
-          <!-- مفرزة مستشفى الملكة علياء (عمان) -->
-          <div class="cred-item">
-            <div class="cred-info">
-              <span class="cred-role">🏥 قائد مفرزة مستشفى الملكة علياء</span>
-              <span class="cred-name">عمان العاصمة</span>
-            </div>
-            <span class="cred-num">20005</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- إشعار هام لتسجيل الدخول السحابي -->
-      <div class="access-notice">
-        <span style="font-size: 20px;">ℹ️</span>
-        <div>
-          <strong>ملاحظة هامة حول الوصول السحابي:</strong><br>
-          في حال ظهرت لك رسالة <em>"You do not have access to this app"</em> عند فتح الرابط السحابي، يُرجى الضغط على زر <strong>Sign in</strong> في منصة Streamlit للمصادقة عبر حسابك المعتمد، أو جعل التطبيق عاماً (Public) من إعدادات لوحة تحكم <code>share.streamlit.io</code>.
-        </div>
-      </div>
-
     </div>
 
-    <!-- تذييل الصفحة -->
+    <!-- بطاقة الحسابات المصرحة والمفارز -->
+    <div class="launch-card">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 4px;">
+        <div class="launch-title">
+          <span>🔐</span>
+          <span>دليل الحسابات المصرحة بالرقم العسكري:</span>
+        </div>
+        <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #FCD34D; font-size: 11.5px; font-weight: 700; padding: 2px 10px; border-radius: 6px;">
+          كلمة المرور الموحدة: 123456
+        </div>
+      </div>
+
+      <div class="detachments-grid">
+        <!-- رئيس الفرع -->
+        <div class="detach-item chief">
+          <div class="detach-info">
+            <span class="detach-name" style="color: #38BDF8;">👑 رئيس الفرع (صلاحية شاملة)</span>
+            <span class="detach-leader">المقدم المهندس رامي سبع العيش</span>
+          </div>
+          <span class="mil-id-badge">10001</span>
+        </div>
+
+        <!-- مفرزة مستشفى الأمير علي (الكرك) -->
+        <div class="detach-item karak">
+          <div class="detach-info">
+            <span class="detach-name" style="color: #4ADE80;">🏥 مفرزة مستشفى الأمير علي</span>
+            <span class="detach-leader">المقدم المهندسة منار (الكرك - 38 فني)</span>
+          </div>
+          <span class="mil-id-badge">20002</span>
+        </div>
+
+        <!-- مفرزة مستشفى الأمير راشد (إربد) -->
+        <div class="detach-item">
+          <div class="detach-info">
+            <span class="detach-name">🏥 مفرزة مستشفى الأمير راشد</span>
+            <span class="detach-leader">إربد الشمال (4 فنيين)</span>
+          </div>
+          <span class="mil-id-badge">20001</span>
+        </div>
+
+        <!-- مفرزة مستشفى الأمير هاشم (الزرقاء) -->
+        <div class="detach-item">
+          <div class="detach-info">
+            <span class="detach-name">🏥 مفرزة مستشفى الأمير هاشم</span>
+            <span class="detach-leader">الزرقاء (4 فنيين)</span>
+          </div>
+          <span class="mil-id-badge">20003</span>
+        </div>
+
+        <!-- مفرزة مستشفى الأميرة هيا (جرش/عجلون) -->
+        <div class="detach-item">
+          <div class="detach-info">
+            <span class="detach-name">🏥 مفرزة مستشفى الأميرة هيا</span>
+            <span class="detach-leader">جرش / عجلون (4 فنيين)</span>
+          </div>
+          <span class="mil-id-badge">20004</span>
+        </div>
+
+        <!-- مفرزة مستشفى الملكة علياء (عمان) -->
+        <div class="detach-item">
+          <div class="detach-info">
+            <span class="detach-name">🏥 مفرزة مستشفى الملكة علياء</span>
+            <span class="detach-leader">عمان العاصمة (4 فنيين)</span>
+          </div>
+          <span class="mil-id-badge">20005</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- بطاقة معالجة صلاحيات Streamlit Cloud وتغيير الرابط -->
+    <div class="troubleshoot-card">
+      <div class="troubleshoot-header">
+        <span>⚙️</span>
+        <span>توجيهات حل رسالة "You do not have access to this app":</span>
+      </div>
+      <div class="troubleshoot-text">
+        في حال ظهرت لك هذه الرسالة عند الضغط على زر الدخول، فهذا يعني أن التطبيق في منصة <strong>Streamlit Cloud</strong> بحاجة إلى تسجيل الدخول بحسابك أو تعديل الخصوصية:
+        <div class="troubleshoot-steps" style="margin-top: 8px;">
+          <div>1️⃣ اضغط على كلمة <strong>sign in</strong> في شاشة الخطأ وسجّل الدخول بحساب GitHub الخاص بك.</div>
+          <div>2️⃣ أو من خلال <a href="https://share.streamlit.io" target="_blank" style="color: #38BDF8; font-weight: 700;">share.streamlit.io</a>، ادخل إلى إعدادات التطبيق (App Settings) واجعل الخصوصية <strong>Public</strong> ليفتح مباشرة للجميع.</div>
+        </div>
+      </div>
+
+      <!-- إمكانية تخصيص رابط الخادم مباشرة -->
+      <div style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
+        <div style="font-size: 12.5px; color: #94A3B8; margin-bottom: 6px; font-weight: 700;">
+          🔗 إذا كان لديك رابط خادم مباشر آخر (مثل رابط نفق أو رابط Streamlit مخصص):
+        </div>
+        <div class="url-input-box">
+          <input type="text" id="custom-url-input" class="url-input" placeholder="https://your-custom-app.streamlit.app">
+          <button class="btn-save-url" onclick="saveCustomUrl()">حفظ وفتح الرابط</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- التذييل العسكري -->
     <div class="portal-footer">
       المنظومة العسكرية المركزية الموحدة • فرع صيانة المستشفيات العسكرية © 2026
     </div>
+
   </div>
 
   <script>
+    const DEFAULT_URL = "https://military-maintenance-app.streamlit.app";
+    const launchBtn = document.getElementById('main-stream-btn');
+    const inputElem = document.getElementById('custom-url-input');
+
+    // استرجاع الرابط المحفوظ مسبقاً إن وجد
+    const savedUrl = localStorage.getItem('maint_app_custom_url');
+    if (savedUrl) {
+      launchBtn.href = savedUrl;
+      inputElem.value = savedUrl;
+    } else {
+      inputElem.value = DEFAULT_URL;
+    }
+
+    function saveCustomUrl() {
+      const val = inputElem.value.trim();
+      if (val) {
+        localStorage.setItem('maint_app_custom_url', val);
+        launchBtn.href = val;
+        window.open(val, '_blank');
+      }
+    }
+
     // تسجيل الـ Service Worker لتمكين تثبيت التطبيق PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
