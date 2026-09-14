@@ -46,3 +46,4 @@ scratch/
 
 cloudflared.exe
 firebase.exe
+.tools/

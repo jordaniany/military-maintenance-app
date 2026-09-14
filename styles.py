@@ -800,12 +800,170 @@ def apply_custom_styles():
         box-shadow: 0 3px 10px rgba(217, 119, 6, 0.3) !important;
     }
 
-    div[data-testid="stButton"]:has(button[key*="btn_act_import_"]) button {
-        background: linear-gradient(135deg, #7E22CE 0%, #6D28D9 100%) !important;
+    /* زر تسجيل الخروج الأحمر البارز */
+    div.stButton > button[key*="logout"],
+    div.stButton > button:has(div:contains("تسجيل الخروج")),
+    div.stButton > button:has(span:contains("تسجيل الخروج")),
+    div.stButton > button:has(p:contains("تسجيل الخروج")),
+    [data-testid="stSidebar"] div.stButton > button[key*="logout"],
+    [data-testid="stSidebar"] div.stButton > button:first-child {
+        background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%) !important;
         color: #FFFFFF !important;
-        border: 1px solid #7E22CE !important;
-        font-weight: 700 !important;
-        box-shadow: 0 3px 10px rgba(126, 34, 206, 0.3) !important;
+        border: 1px solid #EF4444 !important;
+        font-weight: 800 !important;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
+    }
+    
+    div.stButton > button[key*="logout"]:hover,
+    [data-testid="stSidebar"] div.stButton > button[key*="logout"]:hover {
+        background: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%) !important;
+        border-color: #F87171 !important;
+        box-shadow: 0 6px 16px rgba(239, 68, 68, 0.5) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    /* الهيدر الأنيق للمفرزة بدون حشو */
+    .clean-detachment-header {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+        color: #F8FAFC;
+        border-radius: 14px;
+        padding: 20px 24px;
+        margin-bottom: 22px;
+        border-right: 6px solid #0284C7;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.15);
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    .clean-detachment-header .hosp-title {
+        font-size: 22px;
+        font-weight: 900;
+        color: #38BDF8;
+        margin-bottom: 8px;
+        letter-spacing: 0.3px;
+    }
+
+    .clean-detachment-header .commander-sub {
+        font-size: 15.5px;
+        font-weight: 700;
+        color: #FDE68A;
+        display: inline-flex;
+        align-items: center;
+        background: rgba(254, 240, 138, 0.12);
+        padding: 5px 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(254, 240, 138, 0.3);
+    }
+
+    /* فقاعات المحادثة في الشات العام */
+    .chat-bubble {
+        background: #FFFFFF;
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    .chat-bubble.admin-msg {
+        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+        border-right: 5px solid #0284C7;
+        box-shadow: 0 3px 10px rgba(2, 132, 199, 0.1);
+    }
+
+    .chat-bubble.my-msg {
+        background: #F0FDF4;
+        border-right: 5px solid #16A34A;
+    }
+
+    .chat-sender-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 13.5px;
+        border-bottom: 1px dashed #E2E8F0;
+        padding-bottom: 6px;
+    }
+
+    .chat-sender-name {
+        font-weight: 800;
+        color: #0F172A;
+    }
+
+    .chat-msg-text {
+        font-size: 14.5px;
+        line-height: 1.7;
+        color: #1E293B;
+        margin-top: 6px;
+    }
+
+    /* بطاقات الطلبات والملاحظات */
+    .request-card {
+        background: #FFFFFF;
+        border-radius: 14px;
+        padding: 18px 22px;
+        margin-bottom: 16px;
+        border: 1px solid #CBD5E1;
+        box-shadow: 0 3px 12px rgba(15, 23, 42, 0.06);
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    .request-card.urgent {
+        border-right: 6px solid #DC2626;
+        background: #FEF2F2;
+    }
+
+    .request-card.important {
+        border-right: 6px solid #D97706;
+        background: #FFFBEB;
+    }
+
+    .request-card.normal {
+        border-right: 6px solid #0284C7;
+        background: #FFFFFF;
+    }
+
+    .request-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .status-badge-new {
+        background: #FEF3C7;
+        color: #92400E;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        border: 1px solid #FDE68A;
+    }
+
+    .status-badge-process {
+        background: #E0F2FE;
+        color: #0369A1;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        border: 1px solid #BAE6FD;
+    }
+
+    .status-badge-done {
+        background: #DCFCE7;
+        color: #166534;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        border: 1px solid #86EFAC;
     }
     </style>
     """
@@ -926,7 +1084,7 @@ def render_technician_card(tech):
     <div class="military-id-card">
         <div class="id-card-header">
             <div class="id-card-title">🪪 البطاقة التعريفية العسكرية الشاملة</div>
-            <div class="id-card-badge">🛡️ مديرية الخدمات الطبية الملكية</div>
+            <div class="id-card-badge">🛡️ فرع صيانة المستشفيات العسكرية</div>
         </div>
         <div class="id-card-body">
             <div class="id-card-hero">
@@ -946,3 +1104,96 @@ def render_technician_card(tech):
         </div>
     </div>
     """
+
+def render_clean_detachment_header(hospital_name, governorate, supervisor_rank, supervisor_name):
+    """عرض هيدر المفرزة المنظم والأنيق: اسم المستشفى والمحافظة بالأعلى وأسفلها قائد المفرزة"""
+    return f"""
+    <div class="clean-detachment-header">
+        <div class="hosp-title">🏥 {hospital_name} ({governorate})</div>
+        <div>
+            <span class="commander-sub">👑 قائد المفرزة: {supervisor_rank} / {supervisor_name}</span>
+        </div>
+    </div>
+    """
+
+def render_chat_bubble(msg, current_military_id):
+    """عرض فقاعة رسالة محادثة في غرفة عمليات قادة المفارز"""
+    sender_id = str(msg.get("sender_military_id", ""))
+    is_me = (sender_id == str(current_military_id))
+    role = msg.get("sender_role", "قائد مفرزة")
+    is_admin = (role == "رئيس الفرع" or sender_id == "10001")
+    
+    cls_type = "admin-msg" if is_admin else ("my-msg" if is_me else "")
+    admin_badge = '<span style="background: #0284C7; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 6px;">👑 قيادة الفرع</span>' if is_admin else ''
+    my_badge = '<span style="background: #16A34A; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 6px;">أنت</span>' if is_me else ''
+
+    return f"""
+    <div class="chat-bubble {cls_type}">
+        <div class="chat-sender-header">
+            <div>
+                <span class="chat-sender-name">🎖️ {msg.get('sender_rank')} / {msg.get('sender_name')}</span>
+                {admin_badge}
+                {my_badge}
+                <span style="color: #64748B; font-size: 12px; margin-right: 8px;">🏥 {msg.get('detachment_name')}</span>
+            </div>
+            <div style="color: #94A3B8; font-size: 12px; direction: ltr;">
+                🕒 {msg.get('created_at')}
+            </div>
+        </div>
+        <div class="chat-msg-text">
+            {msg.get('message')}
+        </div>
+    </div>
+    """
+
+def render_request_card(req, is_admin_view=False):
+    """عرض بطاقة طلب أو ملاحظة مع حالتها وتفاصيلها"""
+    priority = req.get("priority", "عادي")
+    status = req.get("status", "جديد")
+    
+    if priority == "عاجل وسري":
+        card_cls = "urgent"
+        p_badge = '<span style="background: #DC2626; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">🚨 عاجل وسري</span>'
+    elif priority == "هام":
+        card_cls = "important"
+        p_badge = '<span style="background: #D97706; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">⚠️ هام</span>'
+    else:
+        card_cls = "normal"
+        p_badge = '<span style="background: #64748B; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">📌 عادي</span>'
+
+    if status == "جديد":
+        s_badge = '<span class="status-badge-new">🟡 جديد</span>'
+    elif status == "قيد المتابعة":
+        s_badge = '<span class="status-badge-process">🔵 قيد المتابعة والتدقيق</span>'
+    else:
+        s_badge = '<span class="status-badge-done">🟢 تمت المعالجة والإجراء</span>'
+
+    admin_resp = req.get("admin_response", "")
+    resp_html = f"""
+    <div style="margin-top: 12px; padding: 12px 14px; background: #F0FDF4; border: 1px solid #86EFAC; border-radius: 8px; font-size: 13.5px; color: #166534;">
+        👑 <b>توجيهات ورد رئيس الفرع:</b> {admin_resp}
+    </div>
+    """ if admin_resp and str(admin_resp).strip() else ""
+
+    return f"""
+    <div class="request-card {card_cls}">
+        <div class="request-header">
+            <div>
+                <span style="font-size: 16.5px; font-weight: 900; color: #0F172A;">{req.get('title')}</span>
+                <span style="margin-right: 8px;">{p_badge}</span>
+                <span style="margin-right: 6px;">{s_badge}</span>
+            </div>
+            <div style="font-size: 12px; color: #64748B; direction: ltr;">
+                🕒 {req.get('created_at')}
+            </div>
+        </div>
+        <div style="font-size: 12.5px; color: #475569; margin-bottom: 8px;">
+            👤 <b>المرسل:</b> {req.get('sender_rank')} / {req.get('sender_name')} &nbsp;|&nbsp; 🏥 <b>المفرزة:</b> {req.get('detachment_name')} &nbsp;|&nbsp; 📂 <b>النوع:</b> {req.get('category')}
+        </div>
+        <div style="font-size: 14.5px; color: #1E293B; line-height: 1.7; background: #FAFAFA; padding: 10px 14px; border-radius: 8px; border: 1px solid #E2E8F0;">
+            {req.get('content')}
+        </div>
+        {resp_html}
+    </div>
+    """
+

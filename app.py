@@ -142,8 +142,8 @@ st.sidebar.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# زر تسجيل الخروج
-if st.sidebar.button("🚪 تسجيل الخروج", key="btn_logout_top", use_container_width=True, type="secondary"):
+# زر تسجيل الخروج الأحمر البارز
+if st.sidebar.button("🚪 تسجيل الخروج من المنظومة", key="btn_logout_top", use_container_width=True, type="primary"):
     st.session_state["authenticated"] = False
     st.session_state["current_user"] = None
     st.toast("تم تسجيل الخروج بنجاح.", icon="👋")
@@ -157,6 +157,9 @@ if is_branch_chief:
         "📊 لوحة المؤشرات العامة",
         "📋 الموجود الصباحي اليومي",
         "🏥 كشف المفارز والمستشفيات",
+        "🪪 الكرت التعريفي العسكري للمرتب",
+        "💬 غرفة عمليات وشات قادة المفارز",
+        "📨 متابعة الطلبات والملاحظات الواردة",
         "👥 إدارة المرتبات والفنيين",
         "🔄 سجل حركات النقل",
         "⚙️ الإعدادات وتخصيص المنظومة"
@@ -164,7 +167,10 @@ if is_branch_chief:
 else:
     menu_options = [
         "📋 الموجود الصباحي لمفرزتي",
-        "🏥 كشف مفرزتي وبيانات المرتب"
+        "🏥 كشف مفرزتي وبيانات المرتب",
+        "🪪 الكرت التعريفي العسكري للمرتب",
+        "💬 غرفة عمليات وشات قادة المفارز",
+        "📨 إرسال الطلبات والملاحظات"
     ]
 
 menu_choice = st.sidebar.radio("القائمة الرئيسية:", menu_options, index=0)
@@ -941,18 +947,13 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
         selected_detachment = db.get_detachment_by_id(selected_id)
 
         if selected_detachment:
-            # 2.1 بطاقة بيانات المفرزة
-            st.markdown(f"""
-            <div class="detachment-info-card">
-                <div class="detachment-info-title">🏥 {selected_detachment['hospital_name']}</div>
-                <div>
-                    <span class="detachment-pill">📍 المحافظة: <b>{selected_detachment['governorate']}</b></span>
-                    <span class="detachment-pill" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #F59E0B; color: #FEF3C7;">👑 قائد المفرزة: <b style="color: #FDE68A;">{selected_detachment['supervisor_rank']} / {selected_detachment['supervisor_name']}</b></span>
-                    <span class="detachment-pill">📞 رقم التواصل: <b>{selected_detachment['contact_phone'] or 'غير محدد'}</b></span>
-                </div>
-                {f'<div style="margin-top: 12px; color: #94A3B8; font-size: 13px;">📝 <b>ملاحظات المفرزة:</b> {selected_detachment["notes"]}</div>' if selected_detachment["notes"] else ''}
-            </div>
-            """, unsafe_allow_html=True)
+            # 2.1 بطاقة بيانات المفرزة المنظمة والأنيقة (المستشفى والمحافظة بالأعلى وأسفلها قائد المفرزة)
+            st.markdown(styles.render_clean_detachment_header(
+                selected_detachment['hospital_name'],
+                selected_detachment['governorate'],
+                selected_detachment['supervisor_rank'],
+                selected_detachment['supervisor_name']
+            ), unsafe_allow_html=True)
 
             # 2.2 محرر فوري لحفظ وتحديث "النواقص والاحتياجات البشرية"
             st.markdown("#### 📝 النواقص والاحتياجات البشرية للمفرزة")
@@ -975,12 +976,24 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
 
             st.markdown("---")
 
-            # 2.3 جدول تفصيلي بكافة الفنيين التابعين للمفرزة
+            # 2.3 جدول كشف مرتبات الفنيين التابعين للمفرزة (الأعمدة الأساسية المنظمة)
             st.markdown(f"#### 👥 كشف مرتبات الفنيين التابعين للمفرزة ({selected_detachment['hospital_name']})")
             tech_df = db.get_technicians_by_detachment_df(selected_id, apply_custom_columns=True)
 
             if not tech_df.empty:
-                st.markdown(styles.render_rtl_table(tech_df, highlight_commander=True), unsafe_allow_html=True)
+                # تصفية الأعمدة لعرض الأعمدة الأساسية المطلوبة فقط بدون تكرار الحقول التعريفية
+                MAIN_DETACHMENT_COLS = [
+                    "الرقم العسكري",
+                    "الرتبة",
+                    "الاسم الرباعي",
+                    "الصنف",
+                    "المهنة الحالية",
+                    "مكان السكن",
+                    "تاريخ الالتحاق بالمفرزة"
+                ]
+                display_cols = [col for col in MAIN_DETACHMENT_COLS if col in tech_df.columns]
+                filtered_df = tech_df[display_cols]
+                st.markdown(styles.render_rtl_table(filtered_df, highlight_commander=True), unsafe_allow_html=True)
             else:
                 st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك استيراد كشف الفنيين من ملف Excel أدناه أو إضافة فنيين من شاشة إدارة المرتبات.")
 
@@ -2184,4 +2197,309 @@ elif menu_choice == "⚙️ الإعدادات وتخصيص المنظومة":
                                 st.rerun()
                             else:
                                 st.error(msg_del)
+
+# ==============================================================================
+# 7. الكرت التعريفي العسكري الشامل للمرتب (Personnel Military ID Cards)
+# ==============================================================================
+elif menu_choice == "🪪 الكرت التعريفي العسكري للمرتب":
+    styles.render_page_header(
+        "الكرت التعريفي العسكري للمرتب والتقييم الفني",
+        "عرض السجل والبطاقة التعريفية الشاملة لكل فرد من مرتبات المفرزة، وتوثيق التقييم الفني ومستوى الانضباط والكفاءة",
+        "🪪"
+    )
+
+    detachments = db.get_detachments_list()
+    
+    if is_branch_chief:
+        det_map = {f"{d['hospital_name']} ({d['governorate']})": d['id'] for d in detachments}
+        selected_det_label = st.selectbox("🏥 اختر المستشفى / المفرزة لعرض مرتباتها:", options=list(det_map.keys()), key="idcard_det_sel")
+        target_det_id = det_map[selected_det_label]
+    else:
+        target_det_id = active_detachment_id
+        if not target_det_id:
+            st.error("⚠️ لم يتم تحديد المفرزة المسندة لحسابك.")
+            st.stop()
+        det_obj = db.get_detachment_by_id(target_det_id)
+        if det_obj:
+            st.markdown(f"""
+            <div style="background: rgba(15, 23, 42, 0.04); border: 1px solid #CBD5E1; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 14px;">
+                🏥 <b>المفرزة الحالية:</b> {det_obj['hospital_name']} ({det_obj['governorate']}) | 👑 <b>قائد المفرزة:</b> {det_obj['supervisor_rank']} / {det_obj['supervisor_name']}
+            </div>
+            """, unsafe_allow_html=True)
+
+    techs_df = db.get_technicians_by_detachment_df(target_det_id, apply_custom_columns=False)
+
+    if techs_df.empty:
+        st.warning("⚠️ لا توجد مرتبات مسجلة على هذه المفرزة حالياً لعرض بطاقاتهم التعريفية.")
+    else:
+        tech_options = {
+            f"🎖️ {r['الرتبة']} / {r['الاسم الرباعي']} (الرقم العسكري: {r['الرقم العسكري']}) - [{r['الصنف']}]": r['الرقم العسكري']
+            for _, r in techs_df.iterrows()
+        }
+
+        col_sel1, col_sel2 = st.columns([3, 1])
+        with col_sel1:
+            selected_tech_label = st.selectbox("👤 اختر الفني لعرض الكرت التعريفي والتقييم الفني:", options=list(tech_options.keys()), key="sel_tech_idcard")
+            chosen_mil_id = tech_options[selected_tech_label]
+        with col_sel2:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            st.caption(f"إجمالي المرتب: **{len(techs_df)} فرد**")
+
+        chosen_tech = db.get_technician_by_id(chosen_mil_id)
+
+        if chosen_tech:
+            # 1. عرض البطاقة التعريفية العسكرية المصممة بأعلى معايير الأناقة
+            st.markdown(styles.render_technician_card(chosen_tech), unsafe_allow_html=True)
+
+            # 2. قسم تحديث الملاحظات والتقييم الفني
+            st.markdown("#### 📝 تحديث التقييم الفني وملاحظات الأداء والانضباط")
+            with st.form(key=f"form_eval_tech_{chosen_mil_id}"):
+                current_eval = chosen_tech.get("evaluation_and_notes") or ""
+                new_eval_text = st.text_area(
+                    "بيان التقييم الفني وسلوك الفني والمهام الموكلة:",
+                    value=current_eval,
+                    placeholder="مثال: فني متميز ومنضبط، يتمتع بكفاءة عالية في تشخيص أعطال التكييف المركزي والمحطات، ملتزم بجدول المناوبات...",
+                    height=110,
+                    key=f"eval_input_{chosen_mil_id}"
+                )
+
+                ev_btn_c1, ev_btn_c2 = st.columns([2, 2])
+                with ev_btn_c1:
+                    save_eval_btn = st.form_submit_button("💾 حفظ وتحديث التقييم الفني في الكرت", type="primary", use_container_width=True)
+                with ev_btn_c2:
+                    pass
+
+                if save_eval_btn:
+                    ok_ev, msg_ev = db.update_technician_evaluation(chosen_mil_id, new_eval_text.strip())
+                    if ok_ev:
+                        st.toast("✅ تم تحديث التقييم الفني بنجاح!", icon="🛡️")
+                        st.success("✅ تم حفظ التقييم الفني بنجاح وتحديث الكرت التعريفي.")
+                        st.rerun()
+                    else:
+                        st.error(msg_ev)
+
+
+# ==============================================================================
+# 8. غرفة عمليات وتواصل قادة المفارز (General Operations Chat)
+# ==============================================================================
+elif menu_choice == "💬 غرفة عمليات وشات قادة المفارز":
+    styles.render_page_header(
+        "غرفة العمليات والشات العام لقادة المفارز",
+        "قناة تواصل فورية وتنسيق عملياتي مباشر بين قادة كافة مفارز المستشفيات العسكرية بالمملكة ورئاسة الفرع",
+        "💬"
+    )
+
+    # شريط معلومات الغرفة
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #F8FAFC; border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-right: 5px solid #16A34A;">
+        <div>
+            <div style="font-size: 16px; font-weight: 800; color: #4ADE80;">🟢 غرفة العمليات المركزية النشطة</div>
+            <div style="font-size: 12.5px; color: #94A3B8;">تتيح تبادل البلاغات الفنية العاجلة، الاستفسارات، وتنسيق الإسناد بين المستشفيات</div>
+        </div>
+        <div>
+            <span style="background: rgba(74, 222, 128, 0.15); color: #86EFAC; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid rgba(74, 222, 128, 0.3);">⚡ مباشر</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # صندوق كتابة الرسالة الجديدة
+    with st.form(key="chat_send_form", clear_on_submit=True):
+        chat_col1, chat_col2 = st.columns([5, 1])
+        with chat_col1:
+            chat_msg_input = st.text_input("💬 اكتب رسالتك أو بلاغك لغرفة العمليات:", placeholder="أدخل نص الرسالة الموجهة لكافة قادة المفارز ورئيس الفرع...", key="input_chat_msg")
+        with chat_col2:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            send_chat_btn = st.form_submit_button("🚀 إرسال", type="primary", use_container_width=True)
+
+        if send_chat_btn:
+            if not chat_msg_input or not chat_msg_input.strip():
+                st.error("يرجى كتابة نص الرسالة قبل الإرسال.")
+            else:
+                sender_mid = current_user.get("username", "10001")
+                sender_name = current_user.get("full_name", "المهندس رامي سبع العيش")
+                sender_rank = current_user.get("rank", "مقدم")
+                sender_role = current_user.get("role", "رئيس الفرع")
+                det_name = current_user.get("hospital_name") or "قيادة فرع صيانة المستشفيات"
+
+                ok_snd, msg_snd = db.send_chat_message(
+                    sender_military_id=sender_mid,
+                    sender_name=sender_name,
+                    sender_rank=sender_rank,
+                    sender_role=sender_role,
+                    detachment_name=det_name,
+                    message=chat_msg_input.strip()
+                )
+                if ok_snd:
+                    st.toast("تم إرسال الرسالة إلى غرفة العمليات", icon="💬")
+                    st.rerun()
+                else:
+                    st.error(msg_snd)
+
+    # زر تحديث الرسائل
+    c_btn1, c_btn2 = st.columns([6, 1])
+    with c_btn2:
+        if st.button("🔄 تحديث الشات", key="btn_refresh_chat", use_container_width=True):
+            st.rerun()
+
+    # استعراض الرسائل السابقة
+    all_messages = db.get_chat_messages(limit=150)
+    current_mid = current_user.get("username", "")
+
+    if not all_messages:
+        st.info("💬 لا توجد رسائل سابقة في غرفة العمليات. ابدأ بإرسال أول رسالة أعلاه.")
+    else:
+        st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+        for msg in reversed(all_messages):
+            st.markdown(styles.render_chat_bubble(msg, current_mid), unsafe_allow_html=True)
+
+
+# ==============================================================================
+# 9. منظومة إرسال الطلبات والملاحظات (Requests & Notes Dispatch)
+# ==============================================================================
+elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "📨 متابعة الطلبات والملاحظات الواردة"]:
+    if is_branch_chief:
+        styles.render_page_header(
+            "متابعة الطلبات والملاحظات الواردة من المفارز",
+            "استعراض الطلبات الخاصة والسرية المرفوعة من قادة المفارز، وتوجيه الردود والقرارات، والاطلاع على الملاحظات العامة",
+            "📨"
+        )
+    else:
+        styles.render_page_header(
+            "إرسال الطلبات والملاحظات",
+            "تقديم ملاحظات ومشاكل عامة مرئية لكافة المفارز، أو رفع طلبات وملاحظات خاصة وسرية مباشرة لعطوفة رئيس الفرع",
+            "📨"
+        )
+
+    req_tab1, req_tab2 = st.tabs([
+        "📢 ملاحظة / مشكلة عامة (مرئية لكافة قادة المفارز)",
+        "🔒 طلب / ملاحظة خاصة (مرسلة حصرياً لرئيس الفرع)"
+    ])
+
+    # --------------------------------------------------------------------------
+    # تبويب 1: ملاحظات ومشاكل عامة
+    # --------------------------------------------------------------------------
+    with req_tab1:
+        st.markdown("##### 📢 الملاحظات والمشاكل العامة المشتركة بين المفارز:")
+        st.caption("هذا القسم مخصص لطرح الملاحظات الفنية وتبادل الخبرات والأعطال المشتركة ليطلع عليها كافة قادة المفارز.")
+
+        # نموذج إضافة ملاحظة عامة
+        with st.expander("➕ تسجيل ونشر ملاحظة / مشكلة عامة جديدة:", expanded=False):
+            with st.form(key="form_public_note"):
+                p_title = st.text_input("عنوان الملاحظة / المشكلة الفنية *:", placeholder="مثال: عطل متكرر في كرتات تشغيل شيلرات يورك...")
+                p_content = st.text_area("تفاصيل الملاحظة والإجراءات المقترحة *:", placeholder="أدخل تفاصيل المشكلة أو الملاحظة الفنية...", height=100)
+                p_priority = st.selectbox("درجة الأهمية:", options=["عادي", "هام", "عاجل وسري"], key="pub_prio")
+
+                sub_pub_btn = st.form_submit_button("📢 نشر الملاحظة لجميع المفارز", type="primary", use_container_width=True)
+                if sub_pub_btn:
+                    if not p_title.strip() or not p_content.strip():
+                        st.error("يرجى ملء العنوان والتفاصيل كاملة.")
+                    else:
+                        sender_mid = current_user.get("username", "10001")
+                        sender_name = current_user.get("full_name", "المهندس رامي سبع العيش")
+                        sender_rank = current_user.get("rank", "مقدم")
+                        det_name = current_user.get("hospital_name") or "شعبة صيانة المستشفيات"
+
+                        ok_p, msg_p = db.send_request_or_note(
+                            sender_military_id=sender_mid,
+                            sender_name=sender_name,
+                            sender_rank=sender_rank,
+                            detachment_name=det_name,
+                            category="ملاحظة عامة لكافة المفارز",
+                            title=p_title.strip(),
+                            content=p_content.strip(),
+                            priority=p_priority
+                        )
+                        if ok_p:
+                            st.toast("تم نشر الملاحظة العامة بنجاح", icon="📢")
+                            st.success("✅ تم نشر الملاحظة العامة بنجاح لكافة قادة المفارز.")
+                            st.rerun()
+                        else:
+                            st.error(msg_p)
+
+        # عرض الملاحظات العامة
+        public_notes = db.get_requests_and_notes(category="ملاحظة عامة لكافة المفارز", is_admin=True)
+        if not public_notes:
+            st.info("لا توجد ملاحظات عامة منشورة حالياً.")
+        else:
+            for note in public_notes:
+                st.markdown(styles.render_request_card(note, is_admin_view=is_branch_chief), unsafe_allow_html=True)
+
+    # --------------------------------------------------------------------------
+    # تبويب 2: طلب / ملاحظة خاصة وسرية لرئيس الفرع
+    # --------------------------------------------------------------------------
+    with req_tab2:
+        if is_branch_chief:
+            st.markdown("##### 🔒 الطلبات والملاحظات الخاصة الواردة من قادة المفارز:")
+            st.caption("متابعة الطلبات الموجهة إليك مباشرة مع إمكانية تحديث الحالة وتزويد قائد المفرزة بالرد والتوجيهات الرسمية.")
+
+            private_requests = db.get_requests_and_notes(category="طلب خاص لرئيس الفرع", is_admin=True)
+            if not private_requests:
+                st.success("✅ لا توجد طلبات خاصة جديدة معلقة. كافة المفارز مستقرة.")
+            else:
+                for req in private_requests:
+                    st.markdown(styles.render_request_card(req, is_admin_view=True), unsafe_allow_html=True)
+                    
+                    # لوحة الرد والتوجيه لرئيس الفرع
+                    with st.expander(f"⚙️ إجراء الرد والتوجيه على الطلب #{req['id']} ({req['title']}):", expanded=False):
+                        with st.form(key=f"reply_form_{req['id']}"):
+                            r_status = st.selectbox("حالة الطلب:", options=["جديد", "قيد المتابعة", "تمت المعالجة"], index=["جديد", "قيد المتابعة", "تمت المعالجة"].index(req['status']) if req['status'] in ["جديد", "قيد المتابعة", "تمت المعالجة"] else 0, key=f"r_stat_{req['id']}")
+                            r_reply = st.text_area("توجيهات ورد رئيس الفرع:", value=req.get('admin_response') or '', placeholder="اكتب التوجيهات الرسمية أو الإجراء المتخذ...", height=80, key=f"r_rep_{req['id']}")
+                            
+                            save_reply_btn = st.form_submit_button("💾 حفظ الرد وتحديث الحالة للمفرزة", type="primary", use_container_width=True)
+                            if save_reply_btn:
+                                ok_rep, msg_rep = db.update_request_status_and_reply(req['id'], r_status, r_reply.strip())
+                                if ok_rep:
+                                    st.toast("تم حفظ الرد وتوجيهه لقائد المفرزة", icon="✅")
+                                    st.success("✅ تم حفظ التوجيه بنجاح.")
+                                    st.rerun()
+                                else:
+                                    st.error(msg_rep)
+        else:
+            st.markdown("##### 🔒 إرسال طلب / ملاحظة خاصة وسرية إلى عطوفة رئيس الفرع:")
+            st.caption("هذا الطلب سري ومحمي، ولا يظهر لباقي قادة المفارز. يرسل مباشرة إلى المقدم المهندس رامي سبع العيش (رئيس فرع صيانة المستشفيات العسكرية).")
+
+            with st.form(key="form_private_request"):
+                pr_title = st.text_input("موضوع الطلب / الملاحظة *:", placeholder="مثال: طلب تعزيز مفرزة / نقل فني / صرف عهدة خاصة...")
+                pr_priority = st.selectbox("درجة الاستعجال والسرية:", options=["عادي", "هام", "عاجل وسري"], index=1, key="pr_prio")
+                pr_content = st.text_area("نص الطلب والشرح المفصل *:", placeholder="أدخل تفاصيل الطلب أو المعاملة والمبررات الفنية والإدارية...", height=120)
+
+                sub_pr_btn = st.form_submit_button("🔒 إرسال الطلب سرياً إلى رئيس الفرع", type="primary", use_container_width=True)
+                if sub_pr_btn:
+                    if not pr_title.strip() or not pr_content.strip():
+                        st.error("يرجى ملء الموضوع وتفاصيل الطلب.")
+                    else:
+                        sender_mid = current_user.get("username", "20002")
+                        sender_name = current_user.get("full_name", "المهندسة منار")
+                        sender_rank = current_user.get("rank", "مقدم")
+                        det_name = current_user.get("hospital_name") or "المفرزة"
+
+                        ok_pr, msg_pr = db.send_request_or_note(
+                            sender_military_id=sender_mid,
+                            sender_name=sender_name,
+                            sender_rank=sender_rank,
+                            detachment_name=det_name,
+                            category="طلب خاص لرئيس الفرع",
+                            title=pr_title.strip(),
+                            content=pr_content.strip(),
+                            priority=pr_priority
+                        )
+                        if ok_pr:
+                            st.toast("تم إرسال الطلب السري بنجاح", icon="🔒")
+                            st.success("✅ تم إرسال طلبك الخاص بنجاح إلى رئيس الفرع. يمكنك متابعة الرد والتوجيهات أدناه.")
+                            st.rerun()
+                        else:
+                            st.error(msg_pr)
+
+            # استعراض طلباتي الخاصة المرسلة وحالتها
+            st.markdown("---")
+            st.markdown("##### 📂 سجل طلباتي الخاصة ومتابعة الردود:")
+            my_mid = current_user.get("username", "")
+            my_requests = db.get_requests_and_notes(category="طلب خاص لرئيس الفرع", sender_military_id=my_mid, is_admin=False)
+            
+            if not my_requests:
+                st.info("لم تقم برفع أي طلبات خاصة سابقة لرئيس الفرع.")
+            else:
+                for my_req in my_requests:
+                    st.markdown(styles.render_request_card(my_req, is_admin_view=False), unsafe_allow_html=True)
+
 
