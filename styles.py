@@ -800,6 +800,22 @@ def apply_custom_styles():
         box-shadow: 0 3px 10px rgba(217, 119, 6, 0.3) !important;
     }
 
+    div[data-testid="stButton"]:has(button[key*="btn_act_idcard_"]) button {
+        background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid #0284C7 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 3px 10px rgba(2, 132, 199, 0.3) !important;
+    }
+
+    div[data-testid="stButton"]:has(button[key*="btn_act_import_"]) button {
+        background: linear-gradient(135deg, #7E22CE 0%, #6D28D9 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid #7E22CE !important;
+        font-weight: 700 !important;
+        box-shadow: 0 3px 10px rgba(126, 34, 206, 0.3) !important;
+    }
+
     /* زر تسجيل الخروج الأحمر البارز */
     div.stButton > button[key*="logout"],
     div.stButton > button:has(div:contains("تسجيل الخروج")),
@@ -1054,8 +1070,8 @@ def render_rtl_table(df, max_height="600px", highlight_commander=False):
         
     return f'<div class="rtl-table-wrapper" style="max-height: {max_height};"><table class="rtl-table" dir="rtl"><thead><tr>{headers_html}</tr></thead><tbody>{"".join(rows_html)}</tbody></table></div>'
 
-def render_technician_card(tech):
-    """توليد كود HTML لبطاقة الفني التعريفية العسكرية الشاملة"""
+def render_technician_card(tech, show_hospital=True):
+    """توليد كود HTML لبطاقة الفني التعريفية العسكرية الشاملة مع التقييم الفني المدمج داخل الكرت"""
     if tech is None:
         return ""
     
@@ -1072,38 +1088,55 @@ def render_technician_card(tech):
     phone = tech.get("رقم الهاتف") or tech.get("phone_number") or tech.get("الهاتف") or "-"
     notes = tech.get("الملاحظات والتقييم الفني") or tech.get("evaluation_and_notes") or tech.get("الملاحظات") or ""
 
-    notes_html = f"""
-    <div class="id-card-notes">
-        📝 <b>الملاحظات والتقييم الفني:</b> {notes}
-    </div>
-    """ if notes and str(notes).strip() and str(notes).strip() != "-" else ""
-
     phone_display = f'<a href="tel:{phone}" style="color: #15803D; font-weight: 700; text-decoration: none;">📞 {phone}</a>' if phone and str(phone).strip() != "-" else "-"
 
-    return f"""
-    <div class="military-id-card">
-        <div class="id-card-header">
-            <div class="id-card-title">🪪 البطاقة التعريفية العسكرية الشاملة</div>
-            <div class="id-card-badge">🛡️ فرع صيانة المستشفيات العسكرية</div>
-        </div>
-        <div class="id-card-body">
-            <div class="id-card-hero">
-                <div class="id-card-name">🎖️ {rank} / {name}</div>
-                <div class="id-card-mil-badge">الرقم العسكري: {mil_id}</div>
-            </div>
-            <div class="id-card-grid">
-                <div class="id-grid-item">🛡️ <b>الصنف:</b> {category}</div>
-                <div class="id-grid-item">💼 <b>المهنة الحالية:</b> {job}</div>
-                <div class="id-grid-item">🏥 <b>المستشفى / المفرزة:</b> {hosp} ({gov})</div>
-                <div class="id-grid-item">📍 <b>مكان السكن:</b> {residence}</div>
-                <div class="id-grid-item">📅 <b>تاريخ الالتحاق:</b> {join_date}</div>
-                <div class="id-grid-item">⏳ <b>مدة الخدمة بالمفرزة:</b> <span style="color: #15803D; font-weight: 700;">{duration}</span></div>
-                <div class="id-grid-item">📱 <b>رقم الهاتف:</b> {phone_display}</div>
-            </div>
-            {notes_html}
-        </div>
-    </div>
-    """
+    # بناء شبكة البيانات حسب صلاحية العرض
+    if show_hospital:
+        grid_items_html = f"""<div class="id-grid-item">🛡️ <b>الصنف:</b> {category}</div>
+<div class="id-grid-item">💼 <b>المهنة الحالية:</b> {job}</div>
+<div class="id-grid-item">🏥 <b>المستشفى / المفرزة:</b> {hosp} ({gov})</div>
+<div class="id-grid-item">📍 <b>مكان السكن:</b> {residence}</div>
+<div class="id-grid-item">📅 <b>تاريخ الالتحاق:</b> {join_date}</div>
+<div class="id-grid-item">⏳ <b>مدة الخدمة بالمفرزة:</b> <span style="color: #15803D; font-weight: 700;">{duration}</span></div>
+<div class="id-grid-item" style="grid-column: span 2;">📱 <b>رقم الهاتف:</b> {phone_display}</div>"""
+    else:
+        grid_items_html = f"""<div class="id-grid-item">🛡️ <b>الصنف:</b> {category}</div>
+<div class="id-grid-item">💼 <b>المهنة الحالية:</b> {job}</div>
+<div class="id-grid-item">📍 <b>مكان السكن:</b> {residence}</div>
+<div class="id-grid-item">📱 <b>رقم الهاتف:</b> {phone_display}</div>
+<div class="id-grid-item">📅 <b>تاريخ الالتحاق:</b> {join_date}</div>
+<div class="id-grid-item">⏳ <b>مدة الخدمة بالمفرزة:</b> <span style="color: #15803D; font-weight: 700;">{duration}</span></div>"""
+
+    # صندوق التقييم الفني وملاحظات الأداء والانضباط داخل الكرت
+    if notes and str(notes).strip() and str(notes).strip() != "-":
+        eval_body = f'<div style="font-size: 14.5px; color: #0F172A; font-weight: 600; line-height: 1.8;">{notes}</div>'
+    else:
+        eval_body = '<div style="font-size: 13.5px; color: #94A3B8; font-style: italic;">⚠️ لم يتم تدوين تقييم فني لهذا الفرد حتى الآن (يمكنك إدخال التقييم من النموذج أدناه).</div>'
+
+    eval_html = f"""<div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 14px 18px; margin-top: 16px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #FCD34D; padding-bottom: 6px;">
+<span style="font-weight: 800; color: #92400E; font-size: 14.5px;">📋 التقييم الفني وملاحظات الأداء والانضباط:</span>
+<span style="background: #FEF3C7; color: #B45309; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px; border: 1px solid #FCD34D;">توثيق رسمي</span>
+</div>
+{eval_body}
+</div>"""
+
+    return f"""<div class="military-id-card">
+<div class="id-card-header">
+<div class="id-card-title">🪪 البطاقة التعريفية العسكرية الشاملة</div>
+<div class="id-card-badge">🛡️ فرع صيانة المستشفيات العسكرية</div>
+</div>
+<div class="id-card-body">
+<div class="id-card-hero">
+<div class="id-card-name">🎖️ {rank} / {name}</div>
+<div class="id-card-mil-badge">الرقم العسكري: {mil_id}</div>
+</div>
+<div class="id-card-grid">
+{grid_items_html}
+</div>
+{eval_html}
+</div>
+</div>"""
 
 def render_clean_detachment_header(hospital_name, governorate, supervisor_rank, supervisor_name):
     """عرض هيدر المفرزة المنظم والأنيق: اسم المستشفى والمحافظة بالأعلى وأسفلها قائد المفرزة"""
@@ -1175,6 +1208,13 @@ def render_request_card(req, is_admin_view=False):
     </div>
     """ if admin_resp and str(admin_resp).strip() else ""
 
+    att_name = req.get("attachment_name")
+    att_html = f"""
+    <div style="margin-top: 8px; font-size: 12.5px; color: #0284C7; font-weight: 700;">
+        📎 <b>الملف المرفق:</b> {att_name}
+    </div>
+    """ if att_name and str(att_name).strip() else ""
+
     return f"""
     <div class="request-card {card_cls}">
         <div class="request-header">
@@ -1192,8 +1232,10 @@ def render_request_card(req, is_admin_view=False):
         </div>
         <div style="font-size: 14.5px; color: #1E293B; line-height: 1.7; background: #FAFAFA; padding: 10px 14px; border-radius: 8px; border: 1px solid #E2E8F0;">
             {req.get('content')}
+            {att_html}
         </div>
         {resp_html}
     </div>
     """
+
 

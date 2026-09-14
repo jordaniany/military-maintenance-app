@@ -263,9 +263,18 @@ def init_db(db_path=DB_NAME):
         priority TEXT NOT NULL DEFAULT 'عادي', -- 'عادي', 'هام', 'عاجل وسري'
         status TEXT NOT NULL DEFAULT 'جديد', -- 'جديد', 'قيد المتابعة', 'تمت المعالجة'
         admin_response TEXT DEFAULT '',
+        attachment_name TEXT DEFAULT '',
+        attachment_data BLOB,
         created_at TEXT NOT NULL
     );
     """)
+
+    cursor.execute("PRAGMA table_info(requests_and_notes);")
+    req_cols = [col["name"] for col in cursor.fetchall()]
+    if "attachment_name" not in req_cols:
+        cursor.execute("ALTER TABLE requests_and_notes ADD COLUMN attachment_name TEXT DEFAULT '';")
+    if "attachment_data" not in req_cols:
+        cursor.execute("ALTER TABLE requests_and_notes ADD COLUMN attachment_data BLOB;")
 
     # إزالة أي سجل مكرر لقائد مفرزة الكرك (46926)
     cursor.execute("DELETE FROM technicians WHERE military_id = '46926';")
@@ -1996,8 +2005,8 @@ def get_chat_messages(limit=150, db_path=DB_NAME):
 # -------------------------------------------------------------
 # وظائف منظومة إرسال الطلبات والملاحظات
 # -------------------------------------------------------------
-def send_request_or_note(sender_military_id, sender_name, sender_rank, detachment_name, category, title, content, priority="عادي", db_path=DB_NAME):
-    """إرسال طلب أو ملاحظة (عامة للمفارز أو خاصة لرئيس الفرع)"""
+def send_request_or_note(sender_military_id, sender_name, sender_rank, detachment_name, category, title, content, priority="عادي", attachment_name="", attachment_data=None, db_path=DB_NAME):
+    """إرسال طلب أو ملاحظة (عامة للمفارز أو خاصة لرئيس الفرع) مع دعم المرفقات"""
     if not title or not content:
         return False, "يرجى ملء العنوان والتفاصيل كاملة"
     conn = get_db_connection(db_path)
@@ -2006,9 +2015,9 @@ def send_request_or_note(sender_military_id, sender_name, sender_rank, detachmen
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute("""
         INSERT INTO requests_and_notes (
-            sender_military_id, sender_name, sender_rank, detachment_name, category, title, content, priority, status, admin_response, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'جديد', '', ?);
-        """, (sender_military_id, sender_name, sender_rank, detachment_name, category, title, content, priority, now_str))
+            sender_military_id, sender_name, sender_rank, detachment_name, category, title, content, priority, status, admin_response, attachment_name, attachment_data, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'جديد', '', ?, ?, ?);
+        """, (sender_military_id, sender_name, sender_rank, detachment_name, category, title, content, priority, attachment_name, attachment_data, now_str))
         conn.commit()
         conn.close()
         return True, "تم إرسال الطلب / الملاحظة بنجاح"

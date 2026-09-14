@@ -1002,7 +1002,7 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
             # شريط الأزرار الملونة للعمليات السريعة بجانب بعضها
             st.markdown("##### ⚡ العمليات والإجراءات السريعة للمفرزة:")
 
-            act_col1, act_col2, act_col3, act_col4, act_col5 = st.columns(5)
+            act_col1, act_col2, act_col3, act_col4, act_col5, act_col6 = st.columns(6)
 
             curr_action_key = f"active_det_action_{selected_id}"
             curr_action = st.session_state.get(curr_action_key, None)
@@ -1011,7 +1011,7 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                 if not tech_df.empty:
                     excel_data = export_to_excel(tech_df, sheet_name=f"كشف {selected_detachment['governorate']}")
                     file_name = f"كشف_مرتبات_{selected_detachment['hospital_name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                    export_btn_label = settings.get("btn_export_label", "📊 تصدير الكشف Excel")
+                    export_btn_label = settings.get("btn_export_label", "📊 تصدير Excel")
                     st.download_button(
                         label=export_btn_label,
                         data=excel_data,
@@ -1021,12 +1021,12 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                         use_container_width=True
                     )
                 else:
-                    st.button("📊 تصدير الكشف Excel", disabled=True, key=f"dl_det_dis_{selected_id}", use_container_width=True)
+                    st.button("📊 تصدير Excel", disabled=True, key=f"dl_det_dis_{selected_id}", use_container_width=True)
 
             with act_col2:
                 template_bytes = db.generate_technicians_template()
                 st.download_button(
-                    label="📄 تحميل قالب Excel",
+                    label="📄 قالب Excel",
                     data=template_bytes,
                     file_name="قالب_استيراد_فنيي_المفرزة.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1035,25 +1035,62 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                 )
 
             with act_col3:
-                btn_add_text = "➕ إضافة فني جديد" if curr_action != "add" else "✖️ إغلاق الإضافة"
+                btn_idcard_text = "🪪 كرت الفني" if curr_action != "idcard" else "✖️ إغلاق الكرت"
+                if st.button(btn_idcard_text, key=f"btn_act_idcard_{selected_id}", use_container_width=True):
+                    st.session_state[curr_action_key] = "idcard" if curr_action != "idcard" else None
+                    st.rerun()
+
+            with act_col4:
+                btn_add_text = "➕ إضافة فني" if curr_action != "add" else "✖️ إغلاق الإضافة"
                 if st.button(btn_add_text, key=f"btn_act_add_{selected_id}", use_container_width=True):
                     st.session_state[curr_action_key] = "add" if curr_action != "add" else None
                     st.rerun()
 
-            with act_col4:
-                btn_edit_text = "✏️ تعديل بيانات فني" if curr_action != "edit" else "✖️ إغلاق التعديل"
+            with act_col5:
+                btn_edit_text = "✏️ تعديل فني" if curr_action != "edit" else "✖️ إغلاق التعديل"
                 if st.button(btn_edit_text, key=f"btn_act_edit_{selected_id}", use_container_width=True):
                     st.session_state[curr_action_key] = "edit" if curr_action != "edit" else None
                     st.rerun()
 
-            with act_col5:
-                btn_import_text = "📥 استيراد كشف Excel" if curr_action != "import" else "✖️ إغلاق الاستيراد"
+            with act_col6:
+                btn_import_text = "📥 استيراد Excel" if curr_action != "import" else "✖️ إغلاق الاستيراد"
                 if st.button(btn_import_text, key=f"btn_act_import_{selected_id}", use_container_width=True):
                     st.session_state[curr_action_key] = "import" if curr_action != "import" else None
                     st.rerun()
 
             # لوحة العمليات التفاعلية النشطة
-            if curr_action == "add":
+            if curr_action == "idcard":
+                st.markdown(f"""
+                <div class="action-panel-container" style="background: #F0F9FF; border-top: 5px solid #0284C7;">
+                    <div class="action-panel-header">
+                        <div class="action-panel-title">🪪 استعراض الكرت التعريفي العسكري المباشر والتقييم الفني ({selected_detachment['hospital_name']})</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if not tech_df.empty:
+                    det_all_techs = db.get_technicians_by_detachment_df(selected_id, apply_custom_columns=False)
+                    id_tech_map = {
+                        f"🎖️ {t['الرتبة']} / {t['الاسم الرباعي']} (الرقم: {t['الرقم العسكري']}) - [{t['الصنف']}]": t['الرقم العسكري']
+                        for _, t in det_all_techs.iterrows()
+                    }
+                    sel_quick_tech = st.selectbox("اختر الفرد لعرض كرته التعريفي وتقييمه الفني:", options=list(id_tech_map.keys()), key=f"sel_quick_idcard_{selected_id}")
+                    quick_mil_id = id_tech_map[sel_quick_tech]
+                    quick_tech_obj = db.get_technician_by_id(quick_mil_id)
+                    if quick_tech_obj:
+                        st.markdown(styles.render_technician_card(quick_tech_obj, show_hospital=is_branch_chief), unsafe_allow_html=True)
+
+                        with st.form(key=f"form_quick_eval_{selected_id}_{quick_mil_id}"):
+                            q_eval_val = quick_tech_obj.get("evaluation_and_notes") or ""
+                            q_new_eval = st.text_area("📋 تحديث التقييم الفني وملاحظات الأداء والانضباط:", value=q_eval_val, height=80, key=f"txt_q_eval_{selected_id}_{quick_mil_id}")
+                            q_save_btn = st.form_submit_button("💾 حفظ وتحديث التقييم الفني", type="primary", use_container_width=True)
+                            if q_save_btn:
+                                ok_qe, msg_qe = db.update_technician_evaluation(quick_mil_id, q_new_eval.strip())
+                                if ok_qe:
+                                    st.toast("✅ تم تحديث التقييم الفني بنجاح!", icon="🛡️")
+                                    st.success("✅ تم حفظ التقييم الفني وتحديث الكرت التعريفي.")
+                                    st.rerun()
+            elif curr_action == "add":
                 st.markdown(f"""
                 <div class="action-panel-container add">
                     <div class="action-panel-header">
@@ -2249,7 +2286,7 @@ elif menu_choice == "🪪 الكرت التعريفي العسكري للمرت�
 
         if chosen_tech:
             # 1. عرض البطاقة التعريفية العسكرية المصممة بأعلى معايير الأناقة
-            st.markdown(styles.render_technician_card(chosen_tech), unsafe_allow_html=True)
+            st.markdown(styles.render_technician_card(chosen_tech, show_hospital=is_branch_chief), unsafe_allow_html=True)
 
             # 2. قسم تحديث الملاحظات والتقييم الفني
             st.markdown("#### 📝 تحديث التقييم الفني وملاحظات الأداء والانضباط")
@@ -2383,11 +2420,16 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
         st.caption("هذا القسم مخصص لطرح الملاحظات الفنية وتبادل الخبرات والأعطال المشتركة ليطلع عليها كافة قادة المفارز.")
 
         # نموذج إضافة ملاحظة عامة
-        with st.expander("➕ تسجيل ونشر ملاحظة / مشكلة عامة جديدة:", expanded=False):
+        with st.expander("➕ تسجيل ونشر ملاحظة / مشكلة عامة جديدة (مع إمكانية إرفاق ملف أو صورة):", expanded=False):
             with st.form(key="form_public_note"):
                 p_title = st.text_input("عنوان الملاحظة / المشكلة الفنية *:", placeholder="مثال: عطل متكرر في كرتات تشغيل شيلرات يورك...")
                 p_content = st.text_area("تفاصيل الملاحظة والإجراءات المقترحة *:", placeholder="أدخل تفاصيل المشكلة أو الملاحظة الفنية...", height=100)
-                p_priority = st.selectbox("درجة الأهمية:", options=["عادي", "هام", "عاجل وسري"], key="pub_prio")
+                
+                col_p1, col_p2 = st.columns(2)
+                with col_p1:
+                    p_priority = st.selectbox("درجة الأهمية:", options=["عادي", "هام", "عاجل وسري"], key="pub_prio")
+                with col_p2:
+                    pub_file = st.file_uploader("📎 إرفاق ملف أو صورة توضيحية (اختياري):", type=["png", "jpg", "jpeg", "pdf", "docx", "xlsx"], key="up_pub_file")
 
                 sub_pub_btn = st.form_submit_button("📢 نشر الملاحظة لجميع المفارز", type="primary", use_container_width=True)
                 if sub_pub_btn:
@@ -2399,6 +2441,9 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
                         sender_rank = current_user.get("rank", "مقدم")
                         det_name = current_user.get("hospital_name") or "شعبة صيانة المستشفيات"
 
+                        att_name = pub_file.name if pub_file is not None else ""
+                        att_data = pub_file.getvalue() if pub_file is not None else None
+
                         ok_p, msg_p = db.send_request_or_note(
                             sender_military_id=sender_mid,
                             sender_name=sender_name,
@@ -2407,7 +2452,9 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
                             category="ملاحظة عامة لكافة المفارز",
                             title=p_title.strip(),
                             content=p_content.strip(),
-                            priority=p_priority
+                            priority=p_priority,
+                            attachment_name=att_name,
+                            attachment_data=att_data
                         )
                         if ok_p:
                             st.toast("تم نشر الملاحظة العامة بنجاح", icon="📢")
@@ -2423,6 +2470,14 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
         else:
             for note in public_notes:
                 st.markdown(styles.render_request_card(note, is_admin_view=is_branch_chief), unsafe_allow_html=True)
+                if note.get("attachment_data"):
+                    st.download_button(
+                        label=f"📥 تحميل المرفق ({note['attachment_name']})",
+                        data=note["attachment_data"],
+                        file_name=note["attachment_name"],
+                        key=f"dl_pub_att_{note['id']}",
+                        use_container_width=False
+                    )
 
     # --------------------------------------------------------------------------
     # تبويب 2: طلب / ملاحظة خاصة وسرية لرئيس الفرع
@@ -2439,6 +2494,15 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
                 for req in private_requests:
                     st.markdown(styles.render_request_card(req, is_admin_view=True), unsafe_allow_html=True)
                     
+                    if req.get("attachment_data"):
+                        st.download_button(
+                            label=f"📥 تحميل المرفق المرفوع من قائد المفرزة ({req['attachment_name']})",
+                            data=req["attachment_data"],
+                            file_name=req["attachment_name"],
+                            key=f"dl_priv_att_admin_{req['id']}",
+                            use_container_width=False
+                        )
+
                     # لوحة الرد والتوجيه لرئيس الفرع
                     with st.expander(f"⚙️ إجراء الرد والتوجيه على الطلب #{req['id']} ({req['title']}):", expanded=False):
                         with st.form(key=f"reply_form_{req['id']}"):
@@ -2460,7 +2524,13 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
 
             with st.form(key="form_private_request"):
                 pr_title = st.text_input("موضوع الطلب / الملاحظة *:", placeholder="مثال: طلب تعزيز مفرزة / نقل فني / صرف عهدة خاصة...")
-                pr_priority = st.selectbox("درجة الاستعجال والسرية:", options=["عادي", "هام", "عاجل وسري"], index=1, key="pr_prio")
+                
+                c_pr1, c_pr2 = st.columns(2)
+                with c_pr1:
+                    pr_priority = st.selectbox("درجة الاستعجال والسرية:", options=["عادي", "هام", "عاجل وسري"], index=1, key="pr_prio")
+                with c_pr2:
+                    priv_file = st.file_uploader("📎 إرفاق كتاب رسمي أو صورة أو ملف (اختياري):", type=["png", "jpg", "jpeg", "pdf", "docx", "xlsx"], key="up_priv_file")
+
                 pr_content = st.text_area("نص الطلب والشرح المفصل *:", placeholder="أدخل تفاصيل الطلب أو المعاملة والمبررات الفنية والإدارية...", height=120)
 
                 sub_pr_btn = st.form_submit_button("🔒 إرسال الطلب سرياً إلى رئيس الفرع", type="primary", use_container_width=True)
@@ -2473,6 +2543,9 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
                         sender_rank = current_user.get("rank", "مقدم")
                         det_name = current_user.get("hospital_name") or "المفرزة"
 
+                        att_name = priv_file.name if priv_file is not None else ""
+                        att_data = priv_file.getvalue() if priv_file is not None else None
+
                         ok_pr, msg_pr = db.send_request_or_note(
                             sender_military_id=sender_mid,
                             sender_name=sender_name,
@@ -2481,7 +2554,9 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
                             category="طلب خاص لرئيس الفرع",
                             title=pr_title.strip(),
                             content=pr_content.strip(),
-                            priority=pr_priority
+                            priority=pr_priority,
+                            attachment_name=att_name,
+                            attachment_data=att_data
                         )
                         if ok_pr:
                             st.toast("تم إرسال الطلب السري بنجاح", icon="🔒")
@@ -2501,5 +2576,13 @@ elif menu_choice in ["📨 إرسال الطلبات والملاحظات", "�
             else:
                 for my_req in my_requests:
                     st.markdown(styles.render_request_card(my_req, is_admin_view=False), unsafe_allow_html=True)
+                    if my_req.get("attachment_data"):
+                        st.download_button(
+                            label=f"📥 تحميل المرفق المرسل ({my_req['attachment_name']})",
+                            data=my_req["attachment_data"],
+                            file_name=my_req["attachment_name"],
+                            key=f"dl_priv_att_me_{my_req['id']}",
+                            use_container_width=False
+                        )
 
 
