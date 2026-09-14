@@ -495,6 +495,61 @@ def sync_official_master_data(db_path=DB_NAME):
     conn.commit()
     conn.close()
 
+def get_user_by_username(username, db_path=DB_NAME):
+    """إرجاع بيانات مستخدم من خلال اسم المستخدم أو الرقم العسكري مع بيانات مفرزته"""
+    if not username:
+        return None
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.*, d.hospital_name, d.governorate
+        FROM users u
+        LEFT JOIN detachments d ON u.detachment_id = d.id
+        WHERE LOWER(u.username) = LOWER(?) AND u.is_active = 1
+    """, (str(username).strip(),))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def append_technician_evaluation(military_id, new_evaluation_text, eval_date=None):
+    """إضافة تقييم وملاحظات أداء جديدة مع الاحتفاظ بالسجل التاريخي لكافة التقييمات السابقة ومؤرخة باليوم"""
+    clean_text = str(new_evaluation_text).strip()
+    if not clean_text:
+        return False, "يرجى كتابة نص التقييم أولاً."
+        
+    if not eval_date:
+        eval_date = date.today().strftime("%Y-%m-%d")
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT evaluation_and_notes FROM technicians WHERE military_id = ?;", (str(military_id).strip(),))
+        row = cursor.fetchone()
+        curr_notes = row["evaluation_and_notes"] if row and row["evaluation_and_notes"] else ""
+        
+        # إذا كان النص المدخل يحتوي بالفعل على تاريخ لا نكرره
+        if clean_text.startswith(f"[{eval_date}]") or clean_text.startswith(f"{eval_date}:"):
+            new_entry = clean_text
+        else:
+            new_entry = f"[{eval_date}] {clean_text}"
+            
+        if curr_notes and curr_notes.strip():
+            updated_notes = f"{new_entry}\n{curr_notes.strip()}"
+        else:
+            updated_notes = new_entry
+            
+        cursor.execute("""
+        UPDATE technicians 
+        SET evaluation_and_notes = ?
+        WHERE military_id = ?;
+        """, (updated_notes, str(military_id).strip()))
+        conn.commit()
+        return True, "تم توثيق وحفظ التقييم الفني بنجاح ضمن السجل التاريخي للفرد."
+    except Exception as e:
+        return False, str(e)
+    finally:
+        conn.close()
+
 def update_technician_evaluation(military_id, evaluation_text):
     """تحديث التقييم الفني وملاحظات الأداء والانضباط لفني محدد وحفظها بصورة دائمة"""
     conn = get_db_connection()

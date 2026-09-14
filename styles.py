@@ -1176,16 +1176,33 @@ def render_technician_card(tech, show_hospital=True):
 <div class="id-grid-item">📅 <b>تاريخ الالتحاق:</b> {join_date}</div>
 <div class="id-grid-item">⏳ <b>مدة الخدمة بالمفرزة:</b> <span style="color: #15803D; font-weight: 700;">{duration}</span></div>"""
 
-    # صندوق التقييم الفني وملاحظات الأداء والانضباط داخل الكرت
+    # صندوق التقييم الفني وملاحظات الأداء والانضباط داخل الكرت (سجل تاريخي مؤرخ)
     if notes and str(notes).strip() and str(notes).strip() != "-":
-        eval_body = f'<div style="font-size: 14.5px; color: #0F172A; font-weight: 600; line-height: 1.8;">{notes}</div>'
+        import re
+        raw_lines = [l.strip() for l in str(notes).strip().split("\n") if l.strip()]
+        eval_items_html = []
+        for line in raw_lines:
+            m = re.match(r"^\[?(\d{4}-\d{2}-\d{2}[^\]]*)\]?[:\s]*(.*)$", line)
+            if m:
+                edate, etxt = m.groups()
+                eval_items_html.append(f"""<div style="background: #FFFFFF; border: 1px solid #FCD34D; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+<span style="background: #FEF3C7; color: #92400E; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid #FDE68A;">📅 تاريخ التقييم: {edate}</span>
+</div>
+<div style="font-size: 14px; color: #0F172A; font-weight: 600; line-height: 1.7;">{etxt or line}</div>
+</div>""")
+            else:
+                eval_items_html.append(f"""<div style="background: #FFFFFF; border: 1px solid #FCD34D; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+<div style="font-size: 14px; color: #0F172A; font-weight: 600; line-height: 1.7;">{line}</div>
+</div>""")
+        eval_body = "".join(eval_items_html)
     else:
         eval_body = '<div style="font-size: 13.5px; color: #94A3B8; font-style: italic;">⚠️ لم يتم تدوين تقييم فني لهذا الفرد حتى الآن (يمكنك إدخال التقييم من النموذج أدناه).</div>'
 
     eval_html = f"""<div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 14px 18px; margin-top: 16px;">
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #FCD34D; padding-bottom: 6px;">
-<span style="font-weight: 800; color: #92400E; font-size: 14.5px;">📋 التقييم الفني وملاحظات الأداء والانضباط:</span>
-<span style="background: #FEF3C7; color: #B45309; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px; border: 1px solid #FCD34D;">توثيق رسمي</span>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px dashed #FCD34D; padding-bottom: 6px;">
+<span style="font-weight: 800; color: #92400E; font-size: 14.5px;">📋 سجل التقييم الفني وملاحظات الأداء والانضباط (مؤرخ):</span>
+<span style="background: #FEF3C7; color: #B45309; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px; border: 1px solid #FCD34D;">سجل رسمي دائم</span>
 </div>
 {eval_body}
 </div>"""

@@ -83,16 +83,30 @@ def export_to_excel(df: pd.DataFrame, sheet_name="البيانات") -> bytes:
     return output.getvalue()
 
 # --- التحقق من تسجيل الدخول (Authentication Gateway) ---
+# فحص الجلسة والتوثيق التلقائي في حال وجود جلسة نشطة
+logged_uid_param = st.query_params.get("logged_uid")
+if logged_uid_param and not st.session_state.get("authenticated", False):
+    auto_u = db.get_user_by_username(str(logged_uid_param))
+    if auto_u:
+        st.session_state["authenticated"] = True
+        st.session_state["current_user"] = auto_u
+
 if not st.session_state.get("authenticated", False):
     styles.apply_custom_styles()
     
     _, login_col, _ = st.columns([1, 2, 1])
     with login_col:
-        st.markdown("""<div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #F8FAFC; padding: 24px 20px; border-radius: 14px 14px 0 0; text-align: center; border-bottom: 4px solid #15803D; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); direction: rtl;"><div style="font-size: 42px; margin-bottom: 6px;">🛡️ ⚙️ 🏥</div><div style="font-size: 22px; font-weight: 900; color: #F8FAFC; letter-spacing: 0.5px;">شعبة صيانة المستشفيات العسكرية</div><div style="font-size: 13.5px; color: #94A3B8; font-weight: 600; margin-top: 4px;">فرع صيانة المستشفيات العسكرية</div></div>""", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #F8FAFC; padding: 26px 20px; border-radius: 14px 14px 0 0; text-align: center; border-bottom: 4px solid #15803D; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); direction: rtl;">
+            <div style="font-size: 44px; margin-bottom: 8px;">🛡️ ⚙️ 🏥</div>
+            <div style="font-size: 23px; font-weight: 900; color: #F8FAFC; letter-spacing: 0.5px;">شعبة صيانة المستشفيات العسكرية</div>
+            <div style="font-size: 14px; color: #94A3B8; font-weight: 600; margin-top: 4px;">فرع صيانة المستشفيات العسكرية</div>
+        </div>
+        """, unsafe_allow_html=True)
         
         with st.form(key="login_gateway_form"):
             st.markdown("##### 🔐 تسجيل الدخول إلى المنظومة بواسطة الرقم العسكري:")
-            login_u = st.text_input("👤 الرقم العسكري / رقم التعريف:", placeholder="أدخل الرقم العسكري (مثال: 10001 أو 20002)...", key="input_login_u")
+            login_u = st.text_input("👤 الرقم العسكري / رقم التعريف:", placeholder="أدخل الرقم العسكري...", key="input_login_u")
             login_p = st.text_input("🔑 كلمة المرور:", type="password", placeholder="أدخل كلمة المرور...", key="input_login_p")
             
             st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
@@ -103,14 +117,11 @@ if not st.session_state.get("authenticated", False):
                 if ok:
                     st.session_state["authenticated"] = True
                     st.session_state["current_user"] = user_dict
+                    st.query_params["logged_uid"] = user_dict["username"]
                     st.toast(f"مرحباً بك {user_dict['rank']} / {user_dict['full_name']}", icon="🛡️")
                     st.rerun()
                 else:
                     st.error(auth_msg)
-        
-        # دليل إرشادي سريع للحسابات الافتراضية
-        with st.expander("ℹ️ دليل الحسابات المصرحة بالرقم العسكري لتجربة المنظومة:", expanded=True):
-            st.markdown("""<div style="font-size: 13px; line-height: 1.8; color: #334155; direction: rtl; text-align: right;">👑 <b>حساب رئيس الفرع (المقدم المهندس رامي سبع العيش - الصلاحية الشاملة):</b><br>• الرقم العسكري: <code style="color: #0369A1; font-weight: 700;">10001</code> أو <code style="color: #0369A1; font-weight: 700;">admin</code> | كلمة المرور: <code>123456</code><br><br>🏥 <b>حساب قائد مفرزة مستشفى الأمير علي - الكرك (المقدم المهندسة منار):</b><br>• الرقم العسكري: <code style="color: #15803D; font-weight: 700;">20002</code> أو <code style="color: #15803D; font-weight: 700;">cmd_karak</code> | كلمة المرور: <code>123456</code><br><br>🏥 <b>حسابات قادة المفارز بالمستشفيات العسكرية بالمحافظات:</b><br>• مفرزة مستشفى الأمير راشد (إربد): الرقم العسكري <code style="color: #15803D; font-weight: 700;">20001</code> | كلمة المرور: <code>123456</code><br>• مفرزة مستشفى الأمير هاشم (الزرقاء): الرقم العسكري <code style="color: #15803D; font-weight: 700;">20003</code> | كلمة المرور: <code>123456</code><br>• مفرزة مستشفى الأميرة هيا (جرش/عجلون): الرقم العسكري <code style="color: #15803D; font-weight: 700;">20004</code> | كلمة المرور: <code>123456</code><br>• مفرزة مستشفى الملكة علياء (عمان): الرقم العسكري <code style="color: #15803D; font-weight: 700;">20005</code> | كلمة المرور: <code>123456</code></div>""", unsafe_allow_html=True)
             
     st.stop()
 
@@ -993,11 +1004,13 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                 ]
                 display_cols = [col for col in MAIN_DETACHMENT_COLS if col in tech_df.columns]
                 filtered_df = tech_df[display_cols].copy()
+                # إضافة عمود فتح الكرت بجانب تاريخ الالتحاق بالمفرزة
+                filtered_df["الكرت التعريفي"] = tech_df["الرقم العسكري"]
                 st.markdown(styles.render_rtl_table(filtered_df, highlight_commander=True), unsafe_allow_html=True)
 
                 # استعراض الكرت التعريفي والتقييم الفني لأفراد المفرزة مباشرة بتفاعل آمن بدون الخروج من النظام
                 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-                st.markdown("##### 🪪 استعراض الكرت التعريفي العسكري والتقييم الفني للفرد:")
+                st.markdown("##### 🪪 استعراض وتحديث البطاقة التعريفية والتقييم الفني للفرد:")
 
                 det_all_techs = db.get_technicians_by_detachment_df(selected_id, apply_custom_columns=False)
                 id_tech_map = {
@@ -1005,32 +1018,53 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                     for _, t in det_all_techs.iterrows()
                 }
 
-                sel_card_key = f"sel_card_tech_{selected_id}"
                 card_opts = list(id_tech_map.keys())
+                
+                # فحص ما إذا كان هناك فرد تم اختياره من الجدول عبر open_card
+                open_card_mid = st.query_params.get("open_card")
+                selected_card_mid = open_card_mid or st.session_state.get(f"active_card_mid_{selected_id}", None)
+                
+                default_idx = 0
+                if selected_card_mid:
+                    for idx, (label, mid) in enumerate(id_tech_map.items()):
+                        if str(mid) == str(selected_card_mid):
+                            default_idx = idx
+                            break
 
+                sel_card_key = f"sel_card_tech_{selected_id}"
                 sel_tech_label = st.selectbox(
-                    "اختر الفرد من القائمة لاستعراض بطاقته التعريفية وتحديث تقييمه الفني:",
+                    "اختر الفرد لاستعراض بطاقته العسكرية وسجل تقييماته الفنية:",
                     options=card_opts,
+                    index=default_idx,
                     key=sel_card_key
                 )
                 active_tech_mid = id_tech_map[sel_tech_label]
+                st.session_state[f"active_card_mid_{selected_id}"] = active_tech_mid
 
                 target_card_tech = db.get_technician_by_id(str(active_tech_mid))
                 if target_card_tech:
                     st.markdown(styles.render_technician_card(target_card_tech, show_hospital=is_branch_chief), unsafe_allow_html=True)
 
                     with st.form(key=f"form_eval_card_{selected_id}_{active_tech_mid}"):
-                        tbl_eval_val = target_card_tech.get("evaluation_and_notes") or ""
-                        tbl_new_eval = st.text_area("📋 تحديث التقييم الفني وملاحظات الأداء والانضباط:", value=tbl_eval_val, height=85, key=f"txt_eval_{selected_id}_{active_tech_mid}")
-                        tbl_save_btn = st.form_submit_button("💾 حفظ وتحديث التقييم الفني في الكرت", type="primary", use_container_width=True)
+                        st.markdown(f"**📝 إضافة وتوثيق تقييم فني جديد للفرد ({target_card_tech['rank']} / {target_card_tech['full_name']}):**")
+                        new_eval_entry = st.text_area(
+                            "بيان التقييم الفني وملاحظات الأداء والانضباط (يتم حفظه وإضافته تلقائياً مع تاريخ اليوم مع الإبقاء على كافة التقييمات السابقة):",
+                            placeholder="أدخل التقييم الفني الجديد وملاحظات الأداء والانضباط...",
+                            height=90,
+                            key=f"txt_new_eval_{selected_id}_{active_tech_mid}"
+                        )
+                        tbl_save_btn = st.form_submit_button("💾 حفظ وتوثيق التقييم الفني المؤرخ", type="primary", use_container_width=True)
                         if tbl_save_btn:
-                            ok_te, msg_te = db.update_technician_evaluation(active_tech_mid, tbl_new_eval.strip())
-                            if ok_te:
-                                st.toast("✅ تم حفظ التقييم الفني وتحديث الكرت بنجاح!", icon="🛡️")
-                                st.success("✅ تم حفظ وتحديث التقييم الفني بنجاح.")
-                                st.rerun()
+                            if not new_eval_entry.strip():
+                                st.error("يرجى كتابة نص التقييم الفني أولاً.")
                             else:
-                                st.error(f"❌ تعذر الحفظ: {msg_te}")
+                                ok_te, msg_te = db.append_technician_evaluation(active_tech_mid, new_eval_entry.strip())
+                                if ok_te:
+                                    st.toast("✅ تم توثيق وحفظ التقييم الفني بنجاح!", icon="🛡️")
+                                    st.success(f"✅ {msg_te}")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ تعذر الحفظ: {msg_te}")
             else:
                 st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك استيراد كشف الفنيين من ملف Excel أدناه أو إضافة فنيين من شاشة إدارة المرتبات.")
 
