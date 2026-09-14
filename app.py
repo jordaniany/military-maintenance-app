@@ -981,6 +981,59 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
             tech_df = db.get_technicians_by_detachment_df(selected_id, apply_custom_columns=True)
 
             if not tech_df.empty:
+                # شريط استعراض كرت الفني والتقييم الفني المباشر
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%); border: 1px solid #BAE6FD; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px;">
+                    <div style="font-size: 14.5px; font-weight: 800; color: #0369A1;">
+                        🪪 استعراض الكرت التعريفي العسكري والتقييم الفني للفرد:
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                id_tech_map = {
+                    f"🎖️ {t['الرتبة']} / {t['الاسم الرباعي']} (الرقم العسكري: {t['الرقم العسكري']})": t['الرقم العسكري']
+                    for _, t in tech_df.iterrows()
+                }
+                c_sel1, c_sel2, c_sel3 = st.columns([3, 1, 1])
+                with c_sel1:
+                    selected_quick_mid_label = st.selectbox(
+                        "اختر الفني لفتح كرته التعريفي:",
+                        options=list(id_tech_map.keys()),
+                        key=f"top_sel_card_{selected_id}",
+                        label_visibility="collapsed"
+                    )
+                    chosen_quick_mid = id_tech_map[selected_quick_mid_label]
+                with c_sel2:
+                    show_card_btn = st.button("🪪 فتح كرت الفني", key=f"btn_show_card_now_{selected_id}", type="primary", use_container_width=True)
+                with c_sel3:
+                    if st.session_state.get(f"active_card_mid_{selected_id}"):
+                        if st.button("✖️ إغلاق الكرت", key=f"btn_close_card_now_{selected_id}", type="secondary", use_container_width=True):
+                            st.session_state[f"active_card_mid_{selected_id}"] = None
+                            st.rerun()
+
+                if show_card_btn:
+                    st.session_state[f"active_card_mid_{selected_id}"] = chosen_quick_mid
+                    st.rerun()
+
+                if st.session_state.get(f"active_card_mid_{selected_id}"):
+                    curr_open_mid = st.session_state.get(f"active_card_mid_{selected_id}")
+                    q_tech_obj = db.get_technician_by_id(curr_open_mid)
+                    if q_tech_obj:
+                        st.markdown(styles.render_technician_card(q_tech_obj, show_hospital=is_branch_chief), unsafe_allow_html=True)
+
+                        with st.form(key=f"quick_eval_form_top_{selected_id}_{curr_open_mid}"):
+                            top_eval_val = q_tech_obj.get("evaluation_and_notes") or ""
+                            top_new_eval = st.text_area("📋 تحديث التقييم الفني وملاحظات الأداء والانضباط:", value=top_eval_val, height=80, key=f"txt_top_eval_{selected_id}_{curr_open_mid}")
+                            save_top_eval_btn = st.form_submit_button("💾 حفظ وتحديث التقييم الفني في الكرت", type="primary", use_container_width=True)
+                            if save_top_eval_btn:
+                                ok_te, msg_te = db.update_technician_evaluation(curr_open_mid, top_new_eval.strip())
+                                if ok_te:
+                                    st.toast("✅ تم تحديث التقييم الفني بنجاح!", icon="🛡️")
+                                    st.success("✅ تم حفظ التقييم الفني بنجاح وتحديث الكرت التعريفي.")
+                                    st.rerun()
+                                else:
+                                    st.error(msg_te)
+
                 # تصفية الأعمدة لعرض الأعمدة الأساسية المطلوبة فقط بدون تكرار الحقول التعريفية
                 MAIN_DETACHMENT_COLS = [
                     "الرقم العسكري",
