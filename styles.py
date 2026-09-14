@@ -601,6 +601,31 @@ def apply_custom_styles():
         border: 1px solid #334155;
     }
 
+    /* زر فتح كرت الفني داخل الجدول */
+    .btn-card-table {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: linear-gradient(135deg, #15803D 0%, #166534 100%);
+        color: #FFFFFF !important;
+        font-weight: 700;
+        font-size: 12px;
+        padding: 5px 12px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        box-shadow: 0 2px 6px rgba(21, 128, 61, 0.25);
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        border: 1px solid #14532D;
+    }
+
+    .btn-card-table:hover {
+        background: linear-gradient(135deg, #166534 0%, #14532D 100%);
+        box-shadow: 0 4px 12px rgba(21, 128, 61, 0.4);
+        transform: translateY(-1px);
+        color: #FFFFFF !important;
+    }
+
     .rollcall-banner {
         background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
         color: #F8FAFC;
@@ -814,6 +839,31 @@ def apply_custom_styles():
         border: 1px solid #7E22CE !important;
         font-weight: 700 !important;
         box-shadow: 0 3px 10px rgba(126, 34, 206, 0.3) !important;
+    }
+
+    /* زر فتح الكرت المباشر داخل جدول المرتبات */
+    .btn-card-table {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%) !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        font-size: 12.5px !important;
+        padding: 5px 14px !important;
+        border-radius: 6px !important;
+        text-decoration: none !important;
+        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
+        transition: all 0.2s ease !important;
+        border: 1px solid #0284C7 !important;
+        cursor: pointer !important;
+        white-space: nowrap !important;
+    }
+    .btn-card-table:hover {
+        background: linear-gradient(135deg, #0369A1 0%, #075985 100%) !important;
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.45) !important;
+        transform: translateY(-1px) !important;
+        color: #FFFFFF !important;
     }
 
     /* زر تسجيل الخروج الأحمر البارز */
@@ -1057,11 +1107,8 @@ def render_rtl_table(df, max_height="600px", highlight_commander=False):
                     cells.append(f'<td><a href="tel:{val}" style="color: #0369A1; font-weight: 600; text-decoration: none;">📞 {val}</a></td>')
                 else:
                     cells.append('<td style="color: #94A3B8;">-</td>')
-            elif col in ["الملاحظات والتقييم الفني", "الملاحظات"]:
-                if val and val != "-":
-                    cells.append(f'<td style="color: #334155; max-width: 260px; white-space: normal;">{val}</td>')
-                else:
-                    cells.append('<td style="color: #94A3B8;">-</td>')
+            elif col in ["الكرت التعريفي", "بطاقة الفرد", "كرت الفني"]:
+                cells.append(f'<td style="text-align: center;"><a href="?open_card={val}" target="_self" class="btn-card-table">🪪 فتح كرت الفني</a></td>')
             else:
                 cells.append(f'<td>{val}</td>')
                 
