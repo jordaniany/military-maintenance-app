@@ -485,11 +485,35 @@ def sync_official_master_data(db_path=DB_NAME):
             current_detachment_id = excluded.current_detachment_id,
             join_date = excluded.join_date,
             phone_number = excluded.phone_number,
-            evaluation_and_notes = excluded.evaluation_and_notes;
+            evaluation_and_notes = CASE 
+                WHEN technicians.evaluation_and_notes IS NOT NULL AND TRIM(technicians.evaluation_and_notes) != '' 
+                THEN technicians.evaluation_and_notes 
+                ELSE excluded.evaluation_and_notes 
+            END;
         ''', (t['military_id'], t['rank'], t['full_name'], t['specialty'], t['primary_category'], t['current_job'], t['residence'], t['current_detachment_id'], t['join_date'], t['phone_number'], t['evaluation_and_notes']))
 
     conn.commit()
     conn.close()
+
+def update_technician_evaluation(military_id, evaluation_text):
+    """تحديث التقييم الفني وملاحظات الأداء والانضباط لفني محدد وحفظها بصورة دائمة"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        UPDATE technicians 
+        SET evaluation_and_notes = ?
+        WHERE military_id = ?;
+        """, (str(evaluation_text).strip(), str(military_id).strip()))
+        conn.commit()
+        success = True
+        msg = "تم حفظ وتحديث التقييم الفني بنجاح."
+    except Exception as e:
+        success = False
+        msg = str(e)
+    finally:
+        conn.close()
+    return success, msg
 
 # --- إدارة الإعدادات (Settings API) ---
 

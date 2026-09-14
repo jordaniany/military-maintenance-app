@@ -52,6 +52,28 @@ def apply_custom_styles():
         unicode-bidi: isolate !important;
     }
 
+    /* إخفاء شريط أدوات ستريمليت، قائمة الثلاث نقاط، زر Fork والتذييل بالكامل */
+    #MainMenu, 
+    header, 
+    footer, 
+    [data-testid="stToolbar"], 
+    [data-testid="stHeaderActionElements"],
+    [data-testid="stDecoration"], 
+    [data-testid="stStatusWidget"],
+    .stAppDeployButton,
+    div[data-testid="stToolbarActions"],
+    div:has(> a[href*="github.com"]),
+    .viewerBadge_container__1QSob,
+    .styles_viewerBadge__1yB5_,
+    .viewerBadge_link__1S137 {
+        visibility: hidden !important;
+        display: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
     /* تحسين شكل رأس الـ Expander */
     [data-testid="stExpander"] details {
         border: 1px solid #CBD5E1 !important;

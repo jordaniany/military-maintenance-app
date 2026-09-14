@@ -993,34 +993,44 @@ elif menu_choice in ["🏥 كشف المفارز والمستشفيات", "🏥 
                 ]
                 display_cols = [col for col in MAIN_DETACHMENT_COLS if col in tech_df.columns]
                 filtered_df = tech_df[display_cols].copy()
-                # إضافة عمود فتح الكرت بجانب تاريخ الالتحاق بالمفرزة
-                filtered_df["الكرت التعريفي"] = tech_df["الرقم العسكري"]
                 st.markdown(styles.render_rtl_table(filtered_df, highlight_commander=True), unsafe_allow_html=True)
 
-                # عرض الكرت التعريفي عند الضغط على زر فتح الكرت في الجدول
-                open_card_mid = st.query_params.get("open_card")
-                if open_card_mid:
-                    target_card_tech = db.get_technician_by_id(str(open_card_mid))
-                    if target_card_tech:
-                        st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
-                        st.markdown(styles.render_technician_card(target_card_tech, show_hospital=is_branch_chief), unsafe_allow_html=True)
+                # استعراض الكرت التعريفي والتقييم الفني لأفراد المفرزة مباشرة بتفاعل آمن بدون الخروج من النظام
+                st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+                st.markdown("##### 🪪 استعراض الكرت التعريفي العسكري والتقييم الفني للفرد:")
 
-                        with st.form(key=f"form_eval_tbl_card_{open_card_mid}"):
-                            tbl_eval_val = target_card_tech.get("evaluation_and_notes") or ""
-                            tbl_new_eval = st.text_area("📋 تحديث التقييم الفني وملاحظات الأداء والانضباط:", value=tbl_eval_val, height=80, key=f"txt_tbl_eval_{open_card_mid}")
-                            tbl_save_btn = st.form_submit_button("💾 حفظ وتحديث التقييم الفني في الكرت", type="primary", use_container_width=True)
-                            if tbl_save_btn:
-                                ok_te, msg_te = db.update_technician_evaluation(open_card_mid, tbl_new_eval.strip())
-                                if ok_te:
-                                    st.toast("✅ تم حفظ التقييم الفني بنجاح!", icon="🛡️")
-                                    st.success("✅ تم تحديث التقييم الفني في الكرت بنجاح.")
-                                    st.rerun()
-                                else:
-                                    st.error(msg_te)
+                det_all_techs = db.get_technicians_by_detachment_df(selected_id, apply_custom_columns=False)
+                id_tech_map = {
+                    f"🎖️ {t['الرتبة']} / {t['الاسم الرباعي']} (الرقم العسكري: {t['الرقم العسكري']}) - [{t['الصنف']}]": str(t['الرقم العسكري'])
+                    for _, t in det_all_techs.iterrows()
+                }
 
-                        if st.button("✖️ إغلاق الكرت التعريفي", key=f"btn_close_tbl_card_{open_card_mid}", type="secondary"):
-                            del st.query_params["open_card"]
-                            st.rerun()
+                sel_card_key = f"sel_card_tech_{selected_id}"
+                card_opts = list(id_tech_map.keys())
+
+                sel_tech_label = st.selectbox(
+                    "اختر الفرد من القائمة لاستعراض بطاقته التعريفية وتحديث تقييمه الفني:",
+                    options=card_opts,
+                    key=sel_card_key
+                )
+                active_tech_mid = id_tech_map[sel_tech_label]
+
+                target_card_tech = db.get_technician_by_id(str(active_tech_mid))
+                if target_card_tech:
+                    st.markdown(styles.render_technician_card(target_card_tech, show_hospital=is_branch_chief), unsafe_allow_html=True)
+
+                    with st.form(key=f"form_eval_card_{selected_id}_{active_tech_mid}"):
+                        tbl_eval_val = target_card_tech.get("evaluation_and_notes") or ""
+                        tbl_new_eval = st.text_area("📋 تحديث التقييم الفني وملاحظات الأداء والانضباط:", value=tbl_eval_val, height=85, key=f"txt_eval_{selected_id}_{active_tech_mid}")
+                        tbl_save_btn = st.form_submit_button("💾 حفظ وتحديث التقييم الفني في الكرت", type="primary", use_container_width=True)
+                        if tbl_save_btn:
+                            ok_te, msg_te = db.update_technician_evaluation(active_tech_mid, tbl_new_eval.strip())
+                            if ok_te:
+                                st.toast("✅ تم حفظ التقييم الفني وتحديث الكرت بنجاح!", icon="🛡️")
+                                st.success("✅ تم حفظ وتحديث التقييم الفني بنجاح.")
+                                st.rerun()
+                            else:
+                                st.error(f"❌ تعذر الحفظ: {msg_te}")
             else:
                 st.warning("⚠️ لا يوجد فنيين مسجلين على مرتب هذه المفرزة حالياً. يمكنك استيراد كشف الفنيين من ملف Excel أدناه أو إضافة فنيين من شاشة إدارة المرتبات.")
 
